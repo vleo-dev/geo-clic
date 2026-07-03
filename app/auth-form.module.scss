@@ -1,0 +1,135 @@
+// app/auth-form.module.scss
+// Style partagé entre /login et /register.
+
+.page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem;
+  background: linear-gradient(160deg, #3f7ea6, #1e4d6b);
+}
+
+.card {
+  width: 100%;
+  max-width: 360px;
+  background-color: rgba(255, 255, 255, 0.95);
+  border-radius: 18px;
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.18),
+    0 1px 2px rgba(0, 0, 0, 0.08);
+  padding: 2rem;
+  color: #1f2937;
+}
+
+.title {
+  margin: 0 0 1.25rem;
+  font-size: 1.4rem;
+  text-align: center;
+}
+
+.oauthGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.oauthButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.6rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background-color: #fff;
+  color: #1f2937;
+  font-size: 0.95rem;
+  cursor: pointer;
+
+  &:hover {
+    background-color: #f9fafb;
+  }
+}
+
+.separator {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 1rem 0;
+  color: #9ca3af;
+  font-size: 0.85rem;
+
+  &::before,
+  &::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background-color: #e5e7eb;
+  }
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+
+  input {
+    padding: 0.55rem 0.7rem;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 0.95rem;
+
+    &:focus {
+      outline: 2px solid #3f7ea6;
+      outline-offset: 1px;
+    }
+  }
+}
+
+.submitButton {
+  margin-top: 0.25rem;
+  padding: 0.65rem;
+  border: none;
+  border-radius: 8px;
+  background-color: #1e4d6b;
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover {
+    background-color: #163a52;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: default;
+  }
+}
+
+.error {
+  margin: 0;
+  color: #dc2626;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.switchLink {
+  margin: 1.25rem 0 0;
+  text-align: center;
+  font-size: 0.85rem;
+
+  a {
+    color: #1e4d6b;
+    font-weight: 600;
+  }
+}

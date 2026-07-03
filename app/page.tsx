@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSession } from "next-auth/react";
 import {
   ComposableMap,
   Geographies,
@@ -16,20 +17,32 @@ import { assignMapColors } from "@/lib/mapColoring";
 import { haversineDistance, getFeedback, FeedbackLevel } from "@/lib/geo";
 import { MICRO_STATES } from "@/lib/microStates";
 import { COUNTRY_CONTINENT } from "@/lib/continents";
+import { COUNTRY_INFO } from "@/lib/countryInfo";
 import { Difficulty, DIFFICULTY_LIVES } from "@/lib/difficulty";
 import { Zone } from "@/lib/zones";
 import BurgerMenu from "@/components/BurgerMenu";
 import CountryCard from "@/components/CountryCard";
 import SettingsMenu from "@/components/SettingsMenu";
+import AccountButton from "@/components/AccountButton";
 import styles from "./page.module.scss";
 
-const geoUrl = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
+// Résolution 50m (frontières nettement plus fines que la 110m par défaut).
+const geoUrl = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json";
 
 const LAND_COLOR_COUNT = 5;
 
+// Le dataset 50m contient ~240 entités (dont des territoires/dépendances non
+// souverains). On ne garde que les pays déjà retenus (mêmes noms qu'en 110m,
+// hors micro-États gérés séparément via des pins).
+const MICRO_STATE_NAMES = new Set(MICRO_STATES.map((m) => m.name));
+const ACCEPTED_COUNTRY_NAMES = new Set(
+  Object.keys(COUNTRY_INFO).filter((name) => !MICRO_STATE_NAMES.has(name)),
+);
+
 type CountryProperties = { name: string };
 type Country = Feature<Geometry, CountryProperties>;
-type TopologyObject = { type: string; geometries?: unknown[] };
+type TopologyGeometry = { properties?: { name?: string } };
+type TopologyObject = { type: string; geometries?: TopologyGeometry[] };
 type Topology = { objects: Record<string, TopologyObject> };
 
 function pickRandom(names: string[]): string {
@@ -70,6 +83,10 @@ export default function Home() {
   const [feedbackKey, setFeedbackKey] = useState(0);
   const theme = THEMES[themeIndex];
 
+  const { data: session } = useSession();
+  const [gameStartedAt, setGameStartedAt] = useState(() => Date.now());
+  const gameRecordedRef = useRef(false);
+
   const activeNames = useMemo(
     () =>
       zone === "ALL"
@@ -83,11 +100,17 @@ export default function Home() {
       .then((res) => res.json())
       .then((topology: Topology) => {
         const objectKey = Object.keys(topology.objects)[0];
-        const rawGeometries = topology.objects[objectKey].geometries ?? [];
-        const featureCollection = feature(
-          topology,
-          topology.objects[objectKey],
-        ) as FeatureCollection<Geometry, CountryProperties>;
+        const rawGeometries = (
+          topology.objects[objectKey].geometries ?? []
+        ).filter(
+          (g) =>
+            g.properties?.name &&
+            ACCEPTED_COUNTRY_NAMES.has(g.properties.name),
+        );
+        const featureCollection = feature(topology, {
+          type: "GeometryCollection",
+          geometries: rawGeometries,
+        }) as FeatureCollection<Geometry, CountryProperties>;
 
         const map: Record<string, [number, number]> = {};
         const names: string[] = [];
@@ -134,6 +157,8 @@ export default function Home() {
     setGameOver(false);
     setLives(newMaxLives);
     setTarget(names.length > 0 ? pickRandom(names) : null);
+    setGameStartedAt(Date.now());
+    gameRecordedRef.current = false;
   }
 
   function handleDifficultyChange(next: Difficulty) {
@@ -149,6 +174,23 @@ export default function Home() {
         : allNames.filter((name) => COUNTRY_CONTINENT[name] === next);
     startNewGame(nextNames, maxLives);
   }
+
+  useEffect(() => {
+    if (!gameOver || !session?.user || gameRecordedRef.current) return;
+    gameRecordedRef.current = true;
+
+    const durationSeconds = Math.round((Date.now() - gameStartedAt) / 1000);
+    fetch("/api/games", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        score: found.size,
+        difficulty,
+        zone,
+        durationSeconds,
+      }),
+    });
+  }, [gameOver, session, found, difficulty, zone, gameStartedAt]);
 
   function handleCountryClick(
     name: string,
@@ -190,6 +232,7 @@ export default function Home() {
         zone={zone}
         onZoneChange={handleZoneChange}
       />
+      <AccountButton />
 
       <CountryCard
         lives={lives}
@@ -232,8 +275,7 @@ export default function Home() {
                               : theme.landPalette[
                                   countryColorIndex[name] ?? 0
                                 ],
-                            stroke: theme.landBorder,
-                            strokeWidth: 0.25,
+                            stroke: "none",
                             outline: "none",
                           },
                           hover: {
