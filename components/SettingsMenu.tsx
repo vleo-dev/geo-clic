@@ -2,21 +2,21 @@
 
 import { useState } from "react";
 import { DIFFICULTIES, DIFFICULTY_LABELS, Difficulty } from "@/lib/difficulty";
-import { ZONES, ZONE_LABELS, Zone } from "@/lib/zones";
+import { THEMES } from "@/lib/theme";
 import styles from "./SettingsMenu.module.scss";
 
 type SettingsMenuProps = {
   difficulty: Difficulty;
   onDifficultyChange: (difficulty: Difficulty) => void;
-  zone: Zone;
-  onZoneChange: (zone: Zone) => void;
+  themeIndex: number;
+  onThemeChange: (index: number) => void;
 };
 
 export default function SettingsMenu({
   difficulty,
   onDifficultyChange,
-  zone,
-  onZoneChange,
+  themeIndex,
+  onThemeChange,
 }: SettingsMenuProps) {
   const [open, setOpen] = useState(false);
 
@@ -61,17 +61,17 @@ export default function SettingsMenu({
             ))}
           </ul>
 
-          <h3 className={styles.sectionTitle}>Zone</h3>
+          <h3 className={styles.sectionTitle}>Thème</h3>
           <ul className={styles.optionList}>
-            {ZONES.map((z) => (
-              <li key={z}>
+            {THEMES.map((theme, index) => (
+              <li key={theme.name}>
                 <button
                   className={`${styles.option} ${
-                    z === zone ? styles.optionActive : ""
+                    index === themeIndex ? styles.optionActive : ""
                   }`}
-                  onClick={() => onZoneChange(z)}
+                  onClick={() => onThemeChange(index)}
                 >
-                  {ZONE_LABELS[z]}
+                  {theme.label}
                 </button>
               </li>
             ))}

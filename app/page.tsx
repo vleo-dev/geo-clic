@@ -20,7 +20,9 @@ import { COUNTRY_CONTINENT } from "@/lib/continents";
 import { COUNTRY_INFO } from "@/lib/countryInfo";
 import { Difficulty, DIFFICULTY_LIVES } from "@/lib/difficulty";
 import { Zone } from "@/lib/zones";
-import BurgerMenu from "@/components/BurgerMenu";
+import { SpecialFilter } from "@/lib/specialFilters";
+import { LANDLOCKED_COUNTRIES, ISLAND_COUNTRIES } from "@/lib/countryTraits";
+import FilterMenu from "@/components/FilterMenu";
 import CountryCard from "@/components/CountryCard";
 import SettingsMenu from "@/components/SettingsMenu";
 import AccountButton from "@/components/AccountButton";
@@ -58,9 +60,27 @@ function pickNextTarget(
   return pickRandom(remaining);
 }
 
+function filterNames(
+  names: string[],
+  zone: Zone,
+  specialFilter: SpecialFilter,
+): string[] {
+  return names.filter((name) => {
+    if (zone !== "ALL" && COUNTRY_CONTINENT[name] !== zone) return false;
+    if (specialFilter === "landlocked" && !LANDLOCKED_COUNTRIES.has(name)) {
+      return false;
+    }
+    if (specialFilter === "island" && !ISLAND_COUNTRIES.has(name)) {
+      return false;
+    }
+    return true;
+  });
+}
+
 export default function Home() {
   const [difficulty, setDifficulty] = useState<Difficulty>("moyen");
   const [zone, setZone] = useState<Zone>("ALL");
+  const [specialFilter, setSpecialFilter] = useState<SpecialFilter>("none");
   const maxLives = DIFFICULTY_LIVES[difficulty];
 
   const [lives, setLives] = useState(maxLives);
@@ -88,11 +108,8 @@ export default function Home() {
   const gameRecordedRef = useRef(false);
 
   const activeNames = useMemo(
-    () =>
-      zone === "ALL"
-        ? allNames
-        : allNames.filter((name) => COUNTRY_CONTINENT[name] === zone),
-    [allNames, zone],
+    () => filterNames(allNames, zone, specialFilter),
+    [allNames, zone, specialFilter],
   );
 
   useEffect(() => {
@@ -168,11 +185,12 @@ export default function Home() {
 
   function handleZoneChange(next: Zone) {
     setZone(next);
-    const nextNames =
-      next === "ALL"
-        ? allNames
-        : allNames.filter((name) => COUNTRY_CONTINENT[name] === next);
-    startNewGame(nextNames, maxLives);
+    startNewGame(filterNames(allNames, next, specialFilter), maxLives);
+  }
+
+  function handleSpecialFilterChange(next: SpecialFilter) {
+    setSpecialFilter(next);
+    startNewGame(filterNames(allNames, zone, next), maxLives);
   }
 
   useEffect(() => {
@@ -225,12 +243,17 @@ export default function Home() {
         color: theme.text,
       }}
     >
-      <BurgerMenu themeIndex={themeIndex} onThemeChange={setThemeIndex} />
+      <FilterMenu
+        zone={zone}
+        onZoneChange={handleZoneChange}
+        specialFilter={specialFilter}
+        onSpecialFilterChange={handleSpecialFilterChange}
+      />
       <SettingsMenu
         difficulty={difficulty}
         onDifficultyChange={handleDifficultyChange}
-        zone={zone}
-        onZoneChange={handleZoneChange}
+        themeIndex={themeIndex}
+        onThemeChange={setThemeIndex}
       />
       <AccountButton />
 
