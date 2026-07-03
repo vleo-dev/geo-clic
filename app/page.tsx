@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ComposableMap,
   Geographies,
   Geography,
+  Marker,
   ZoomableGroup,
 } from "react-simple-maps";
 import { geoCentroid } from "d3-geo";
@@ -13,12 +14,17 @@ import type { Feature, FeatureCollection, Geometry } from "geojson";
 import { THEMES } from "@/lib/theme";
 import { assignMapColors } from "@/lib/mapColoring";
 import { haversineDistance, getFeedback, FeedbackLevel } from "@/lib/geo";
+import { MICRO_STATES } from "@/lib/microStates";
+import { COUNTRY_CONTINENT } from "@/lib/continents";
+import { Difficulty, DIFFICULTY_LIVES } from "@/lib/difficulty";
+import { Zone } from "@/lib/zones";
 import BurgerMenu from "@/components/BurgerMenu";
+import CountryCard from "@/components/CountryCard";
+import SettingsMenu from "@/components/SettingsMenu";
 import styles from "./page.module.scss";
 
 const geoUrl = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json";
 
-const MAX_LIVES = 10;
 const LAND_COLOR_COUNT = 5;
 
 type CountryProperties = { name: string };
@@ -40,7 +46,11 @@ function pickNextTarget(
 }
 
 export default function Home() {
-  const [lives, setLives] = useState(MAX_LIVES);
+  const [difficulty, setDifficulty] = useState<Difficulty>("moyen");
+  const [zone, setZone] = useState<Zone>("ALL");
+  const maxLives = DIFFICULTY_LIVES[difficulty];
+
+  const [lives, setLives] = useState(maxLives);
   const [found, setFound] = useState<Set<string>>(new Set());
   const [target, setTarget] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<FeedbackLevel | null>(null);
@@ -57,7 +67,16 @@ export default function Home() {
     Record<string, number>
   >({});
   const [themeIndex, setThemeIndex] = useState(0);
+  const [feedbackKey, setFeedbackKey] = useState(0);
   const theme = THEMES[themeIndex];
+
+  const activeNames = useMemo(
+    () =>
+      zone === "ALL"
+        ? allNames
+        : allNames.filter((name) => COUNTRY_CONTINENT[name] === zone),
+    [allNames, zone],
+  );
 
   useEffect(() => {
     fetch(geoUrl)
@@ -79,11 +98,16 @@ export default function Home() {
           names.push(name);
         });
 
+        MICRO_STATES.forEach((micro) => {
+          map[micro.name] = micro.coordinates;
+          names.push(micro.name);
+        });
+
         const adjacency = neighbors(rawGeometries);
         const colorIndices = assignMapColors(adjacency, LAND_COLOR_COUNT);
         const colorMap: Record<string, number> = {};
-        names.forEach((name, i) => {
-          colorMap[name] = colorIndices[i];
+        featureCollection.features.forEach((geo, i) => {
+          colorMap[geo.properties.name] = colorIndices[i];
         });
 
         setGeoData(featureCollection);
@@ -104,26 +128,47 @@ export default function Home() {
     setTarget(next);
   }
 
-  function handleCountryClick(geo: Country) {
+  function startNewGame(names: string[], newMaxLives: number) {
+    setFound(new Set());
+    setFeedback(null);
+    setGameOver(false);
+    setLives(newMaxLives);
+    setTarget(names.length > 0 ? pickRandom(names) : null);
+  }
+
+  function handleDifficultyChange(next: Difficulty) {
+    setDifficulty(next);
+    startNewGame(activeNames, DIFFICULTY_LIVES[next]);
+  }
+
+  function handleZoneChange(next: Zone) {
+    setZone(next);
+    const nextNames =
+      next === "ALL"
+        ? allNames
+        : allNames.filter((name) => COUNTRY_CONTINENT[name] === next);
+    startNewGame(nextNames, maxLives);
+  }
+
+  function handleCountryClick(
+    name: string,
+    coordinates: [number, number],
+  ) {
     if (!target || gameOver) return;
 
-    const clickedName = geo.properties.name;
-
-    if (clickedName === target) {
+    if (name === target) {
       const newFound = new Set(found);
       newFound.add(target);
       setFound(newFound);
       setFeedback(null);
-      pickNewTarget(newFound, allNames);
+      pickNewTarget(newFound, activeNames);
       return;
     }
 
-    const distance = haversineDistance(
-      geoCentroid(geo) as [number, number],
-      centroids[target],
-    );
+    const distance = haversineDistance(coordinates, centroids[target]);
     const level = getFeedback(distance);
     setFeedback(level);
+    setFeedbackKey((k) => k + 1);
 
     const newLives = lives - 1;
     setLives(newLives);
@@ -133,46 +178,28 @@ export default function Home() {
   return (
     <main
       className={styles.main}
-      style={{ backgroundColor: theme.ocean, color: theme.text }}
+      style={{
+        backgroundImage: `linear-gradient(160deg, ${theme.ocean}, ${theme.oceanDeep})`,
+        color: theme.text,
+      }}
     >
       <BurgerMenu themeIndex={themeIndex} onThemeChange={setThemeIndex} />
+      <SettingsMenu
+        difficulty={difficulty}
+        onDifficultyChange={handleDifficultyChange}
+        zone={zone}
+        onZoneChange={handleZoneChange}
+      />
 
-      <div className={styles.header}>
-        <div className={styles.lives}>
-          {"❤️".repeat(lives)}
-          {"🖤".repeat(MAX_LIVES - lives)}
-        </div>
-
-        {!gameOver ? (
-          <h2 className={styles.target}>
-            Trouve : <strong>{target}</strong>
-          </h2>
-        ) : (
-          <h2 className={styles.target}>
-            Partie terminée ! Score : {found.size} pays trouvés
-          </h2>
-        )}
-
-        {feedback && !gameOver && (
-          <div className={styles.feedback}>
-            <div
-              className={styles.feedbackLabel}
-              style={{ color: feedback.color }}
-            >
-              {feedback.emoji} {feedback.label}
-            </div>
-            <div className={styles.gaugeTrack}>
-              <div
-                className={styles.gaugeFill}
-                style={{
-                  width: `${feedback.gaugePercent}%`,
-                  backgroundColor: feedback.color,
-                }}
-              />
-            </div>
-          </div>
-        )}
-      </div>
+      <CountryCard
+        lives={lives}
+        maxLives={maxLives}
+        target={target}
+        gameOver={gameOver}
+        foundCount={found.size}
+        feedback={feedback}
+        feedbackKey={feedbackKey}
+      />
 
       <div className={styles.mapWrapper}>
         {geoData && (
@@ -192,7 +219,12 @@ export default function Home() {
                       <Geography
                         key={geo.rsmKey}
                         geography={geo}
-                        onClick={() => handleCountryClick(geo)}
+                        onClick={() =>
+                          handleCountryClick(
+                            name,
+                            geoCentroid(geo) as [number, number],
+                          )
+                        }
                         style={{
                           default: {
                             fill: isFound
@@ -201,7 +233,7 @@ export default function Home() {
                                   countryColorIndex[name] ?? 0
                                 ],
                             stroke: theme.landBorder,
-                            strokeWidth: 0.5,
+                            strokeWidth: 0.25,
                             outline: "none",
                           },
                           hover: {
@@ -219,6 +251,28 @@ export default function Home() {
                   })
                 }
               </Geographies>
+
+              {MICRO_STATES.map((micro) => {
+                const isFound = found.has(micro.name);
+                return (
+                  <Marker
+                    key={micro.name}
+                    coordinates={micro.coordinates}
+                    onClick={() =>
+                      handleCountryClick(micro.name, micro.coordinates)
+                    }
+                  >
+                    <circle
+                      r={1.6}
+                      fill={isFound ? theme.found : theme.pin}
+                      fillOpacity={0.55}
+                      stroke="#ffffff"
+                      strokeWidth={0.3}
+                      style={{ cursor: "pointer" }}
+                    />
+                  </Marker>
+                );
+              })}
             </ZoomableGroup>
           </ComposableMap>
         )}

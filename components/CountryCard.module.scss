@@ -1,0 +1,114 @@
+// components/CountryCard.module.scss
+
+@keyframes popIn {
+  0% {
+    transform: scale(0.85);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.04);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.card {
+  position: fixed;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 260px;
+  max-width: min(90vw, 420px);
+  padding: 0.75rem 1.5rem 0.9rem;
+  background-color: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 18px;
+  box-shadow:
+    0 10px 30px rgba(0, 0, 0, 0.18),
+    0 1px 2px rgba(0, 0, 0, 0.08);
+  color: #1f2937;
+  text-align: center;
+}
+
+.lives {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.heartIcon {
+  color: #e63946;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.livesTrack {
+  flex: 1;
+  height: 6px;
+  background-color: rgba(0, 0, 0, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.livesFill {
+  height: 100%;
+  background-color: #e63946;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.livesCount {
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.75;
+  white-space: nowrap;
+}
+
+.target {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-size: 1.25rem;
+  animation: popIn 0.35s ease-out;
+}
+
+.flag {
+  font-size: 1.7rem;
+  line-height: 1;
+}
+
+.feedback {
+  margin-top: 0.25rem;
+  animation: popIn 0.3s ease-out;
+
+  &Label {
+    font-size: 1.05rem;
+    font-weight: bold;
+  }
+}
+
+.gauge {
+  &Track {
+    width: 200px;
+    height: 10px;
+    background-color: #e5e7eb;
+    border-radius: 6px;
+    overflow: hidden;
+    margin-top: 4px;
+  }
+
+  &Fill {
+    height: 100%;
+    transition: width 0.3s ease;
+  }
+}

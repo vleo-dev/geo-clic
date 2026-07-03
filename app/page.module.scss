@@ -1,64 +1,15 @@
 // app/page.module.scss
 
 .main {
-  display: flex;
-  flex-direction: column;
+  position: relative;
   height: 100vh;
   width: 100%;
   overflow: hidden;
 }
 
-.header {
-  flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 1rem;
-  text-align: center;
-  z-index: 1;
-}
-
-.lives {
-  font-size: 1.5rem;
-  margin-bottom: 0.5rem;
-  letter-spacing: 2px;
-}
-
-.target {
-  margin-bottom: 0.5rem;
-  font-size: 1.4rem;
-}
-
-.feedback {
-  margin-bottom: 1rem;
-  text-align: center;
-
-  &Label {
-    font-size: 1.2rem;
-    font-weight: bold;
-  }
-}
-
-.gauge {
-  &Track {
-    width: 200px;
-    height: 12px;
-    background-color: #e5e7eb;
-    border-radius: 6px;
-    overflow: hidden;
-    margin-top: 4px;
-  }
-
-  &Fill {
-    height: 100%;
-    transition: width 0.3s ease;
-  }
-}
-
 .mapWrapper {
-  flex: 1;
-  min-height: 0;
   width: 100%;
+  height: 100%;
   cursor: grab;
 
   &:active {
