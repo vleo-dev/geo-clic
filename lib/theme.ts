@@ -1,6 +1,6 @@
 // lib/theme.ts
 
-import type { CSSProperties } from "react";
+import { useSyncExternalStore, type CSSProperties } from "react";
 
 export type Theme = {
   name: string;
@@ -109,6 +109,40 @@ export const THEMES: Theme[] = [
     accentSoft: "#e6e6fa",
   },
 ];
+
+const THEME_STORAGE_KEY = "geoclic-theme";
+const listeners = new Set<() => void>();
+
+// Le thème choisi vit en localStorage (et pas seulement en state React) pour
+// survivre à une navigation vers une autre page (ex. /historique). Les
+// composants qui l'utilisent s'y abonnent via `useThemeIndex` ci-dessous.
+function loadThemeIndex(): number {
+  if (typeof window === "undefined") return 0;
+  const raw = window.localStorage.getItem(THEME_STORAGE_KEY);
+  const index = raw !== null ? Number(raw) : NaN;
+  return Number.isInteger(index) && index >= 0 && index < THEMES.length
+    ? index
+    : 0;
+}
+
+export function saveThemeIndex(index: number): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(THEME_STORAGE_KEY, String(index));
+  listeners.forEach((listener) => listener());
+}
+
+function subscribeThemeIndex(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+// Lit le thème persisté et se remet à jour quand `saveThemeIndex` est
+// appelé (même onglet) — évite le flash SSR/CSR d'un useState + useEffect
+// classique, `useSyncExternalStore` restant cohérent entre le rendu serveur
+// (snapshot par défaut) et le client (snapshot localStorage).
+export function useThemeIndex(): number {
+  return useSyncExternalStore(subscribeThemeIndex, loadThemeIndex, () => 0);
+}
 
 // Variables CSS pour propager le thème aux composants d'interface (menus,
 // modale, cartes flottantes) qui vivent sous ce noeud, via `var(--nom)`

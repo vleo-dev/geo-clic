@@ -9,8 +9,10 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const { score, mode, zone, durationSeconds } = body as {
+  const { score, total, errors, mode, zone, durationSeconds } = body as {
     score?: number;
+    total?: number;
+    errors?: number;
     mode?: string;
     zone?: string;
     durationSeconds?: number;
@@ -20,7 +22,9 @@ export async function POST(request: Request) {
     typeof score !== "number" ||
     typeof mode !== "string" ||
     typeof zone !== "string" ||
-    typeof durationSeconds !== "number"
+    typeof durationSeconds !== "number" ||
+    (total !== undefined && typeof total !== "number") ||
+    (errors !== undefined && typeof errors !== "number")
   ) {
     return NextResponse.json({ error: "Données invalides." }, { status: 400 });
   }
@@ -29,6 +33,8 @@ export async function POST(request: Request) {
     data: {
       userId: session.user.id,
       score,
+      total,
+      errors,
       mode,
       zone,
       durationSeconds,

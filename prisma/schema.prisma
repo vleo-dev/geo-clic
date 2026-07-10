@@ -63,6 +63,11 @@ model GameHistory {
   userId          String
   playedAt        DateTime @default(now())
   score           Int
+  // Nombre de cibles possibles pour le mode/zone/filtre joués. Nullable car
+  // les parties enregistrées avant l'ajout de ce champ n'ont pas cette info.
+  total           Int?
+  // Nombre de clics incorrects. Nullable pour la même raison que `total`.
+  errors          Int?
   mode            String
   zone            String
   durationSeconds Int

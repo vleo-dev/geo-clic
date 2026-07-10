@@ -8,20 +8,22 @@ type CountryCardProps = {
   target: string | null;
   label: ModeLabel | null;
   gameOver: boolean;
-  foundCount: number;
+  score: number;
   unitLabel: string;
   feedback: FeedbackLevel | null;
   feedbackKey: number;
+  onPass: () => void;
 };
 
 export default function CountryCard({
   target,
   label,
   gameOver,
-  foundCount,
+  score,
   unitLabel,
   feedback,
   feedbackKey,
+  onPass,
 }: CountryCardProps) {
   return (
     <div className={styles.card}>
@@ -38,8 +40,32 @@ export default function CountryCard({
         </div>
       ) : (
         <div className={styles.target}>
-          Partie terminée ! Score : {foundCount} {unitLabel}
+          Partie terminée ! Score : {score} {unitLabel}
         </div>
+      )}
+
+      {!gameOver && target && (
+        <button
+          type="button"
+          className={styles.passButton}
+          onClick={onPass}
+          aria-label="Passer ce pays"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="13"
+            height="13"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <polygon points="5 4 15 12 5 20 5 4" />
+            <line x1="19" y1="5" x2="19" y2="19" />
+          </svg>
+          Passer
+        </button>
       )}
 
       {feedback && !gameOver && (

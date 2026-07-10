@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ComponentProps, type ForwardRefExoticComponent, type RefAttributes } from "react";
 import { useSession } from "next-auth/react";
 import type { Session } from "next-auth";
 import {
@@ -13,7 +13,13 @@ import {
 import type { ProjectionFunction } from "react-simple-maps";
 import { geoCentroid } from "d3-geo";
 import type { Feature, Geometry } from "geojson";
-import { Theme, THEMES, themeCssVars } from "@/lib/theme";
+import {
+  Theme,
+  THEMES,
+  themeCssVars,
+  useThemeIndex,
+  saveThemeIndex,
+} from "@/lib/theme";
 import { haversineDistance, getFeedback, FeedbackLevel } from "@/lib/geo";
 import {
   GameModeId,
@@ -32,6 +38,13 @@ import styles from "./page.module.scss";
 
 type RegionProperties = { name: string };
 type Region = Feature<Geometry, RegionProperties>;
+
+// @types/react-simple-maps déclare ComposableMap comme un simple
+// FunctionComponent alors qu'il forwarde bien un ref vers le <svg> racine
+// à l'exécution — on corrige le type pour pouvoir s'en servir.
+const MapSvg = ComposableMap as unknown as ForwardRefExoticComponent<
+  ComponentProps<typeof ComposableMap> & RefAttributes<SVGSVGElement>
+>;
 
 function pickRandom(names: string[]): string {
   return names[Math.floor(Math.random() * names.length)];
@@ -94,6 +107,8 @@ function GamePlay({
   theme,
 }: GamePlayProps) {
   const [found, setFound] = useState<Set<string>>(new Set());
+  const [skipped, setSkipped] = useState<Set<string>>(new Set());
+  const [errors, setErrors] = useState(0);
   const [target, setTarget] = useState<string | null>(() =>
     names.length > 0 ? pickRandom(names) : null,
   );
@@ -102,6 +117,7 @@ function GamePlay({
   const [feedbackKey, setFeedbackKey] = useState(0);
   const [gameStartedAt] = useState(() => Date.now());
   const gameRecordedRef = useRef(false);
+  const score = found.size - skipped.size;
 
   // react-simple-maps attend, quand `projection` est une fonction, une
   // instance de projection d3-geo déjà construite (elle est elle-même
@@ -122,29 +138,37 @@ function GamePlay({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        score: found.size,
+        score,
+        total: names.length,
+        errors,
         mode,
         zone: zoneStorage,
         durationSeconds,
       }),
     });
-  }, [gameOver, session, found, mode, zoneStorage, gameStartedAt]);
+  }, [gameOver, session, score, errors, mode, zoneStorage, gameStartedAt, names]);
+
+  // Marque `revealed` comme traité (colorié, exclu des prochains tirages) et
+  // passe à la cible suivante, ou termine la partie s'il n'en reste plus.
+  function advance(revealed: string) {
+    const newFound = new Set(found);
+    newFound.add(revealed);
+    setFound(newFound);
+    setFeedback(null);
+    const next = pickNextTarget(newFound, names);
+    if (next === null) {
+      setGameOver(true);
+      setTarget(null);
+    } else {
+      setTarget(next);
+    }
+  }
 
   function handleTargetClick(name: string, coordinates: [number, number]) {
     if (!target || gameOver) return;
 
     if (name === target) {
-      const newFound = new Set(found);
-      newFound.add(target);
-      setFound(newFound);
-      setFeedback(null);
-      const next = pickNextTarget(newFound, names);
-      if (next === null) {
-        setGameOver(true);
-        setTarget(null);
-      } else {
-        setTarget(next);
-      }
+      advance(target);
       return;
     }
 
@@ -152,7 +176,31 @@ function GamePlay({
     const level = getFeedback(distance);
     setFeedback(level);
     setFeedbackKey((k) => k + 1);
+    setErrors((e) => e + 1);
     if (suddenDeath) setGameOver(true);
+  }
+
+  function handlePass() {
+    if (!target || gameOver) return;
+    setSkipped((prev) => new Set(prev).add(target));
+    advance(target);
+  }
+
+  // Chrome laisse parfois un bitmap flou du <svg> zoomé tant qu'aucun
+  // nouveau repaint n'est déclenché (le souci disparaît dès qu'on
+  // repan/rezoom même légèrement). On force ce repaint nous-mêmes à la fin
+  // du geste de zoom/pan via un reflow synchrone (lecture de layout après
+  // un toggle display), plutôt que de compter sur l'utilisateur pour bouger
+  // la carte une deuxième fois.
+  const svgRef = useRef<SVGSVGElement>(null);
+  function handleMoveEnd() {
+    requestAnimationFrame(() => {
+      const el = svgRef.current;
+      if (!el) return;
+      el.style.display = "none";
+      void el.getBoundingClientRect();
+      el.style.display = "";
+    });
   }
 
   const label = target ? modeData.getLabel(target) : null;
@@ -163,14 +211,16 @@ function GamePlay({
         target={target}
         label={label}
         gameOver={gameOver}
-        foundCount={found.size}
+        score={score}
         unitLabel={MODE_UNIT_LABEL[mode]}
         feedback={feedback}
         feedbackKey={feedbackKey}
+        onPass={handlePass}
       />
 
       {modeData.geoData && (
-        <ComposableMap
+        <MapSvg
+          ref={svgRef}
           width={mapWidth}
           height={mapHeight}
           projection={
@@ -186,7 +236,7 @@ function GamePlay({
           projectionConfig={projection ? undefined : { scale: 147 }}
           preserveAspectRatio="xMidYMid slice"
         >
-          <ZoomableGroup>
+          <ZoomableGroup onMoveEnd={handleMoveEnd}>
             <Geographies geography={modeData.geoData}>
               {({
                 geographies,
@@ -264,7 +314,7 @@ function GamePlay({
               );
             })}
           </ZoomableGroup>
-        </ComposableMap>
+        </MapSvg>
       )}
     </>
   );
@@ -276,7 +326,7 @@ export default function Home() {
   const [specialFilter, setSpecialFilter] = useState<SpecialFilter>("none");
   const [suddenDeath, setSuddenDeath] = useState(false);
   const [setupOpen, setSetupOpen] = useState(true);
-  const [themeIndex, setThemeIndex] = useState(0);
+  const themeIndex = useThemeIndex();
   const theme = THEMES[themeIndex];
 
   const [modeDataEntry, setModeDataEntry] = useState<{
@@ -350,7 +400,7 @@ export default function Home() {
         onSuddenDeathChange={setSuddenDeath}
       />
 
-      <SettingsMenu themeIndex={themeIndex} onThemeChange={setThemeIndex} />
+      <SettingsMenu themeIndex={themeIndex} onThemeChange={saveThemeIndex} />
       <AccountButton />
 
       <div className={styles.mapWrapper}>

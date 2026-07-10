@@ -57,6 +57,34 @@
   line-height: 1;
 }
 
+.passButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border: 1px solid var(--theme-surface-border, #e5e7eb);
+  background: none;
+  color: var(--theme-surface-muted, #6b7280);
+  font-size: 0.78rem;
+  font-weight: 500;
+  padding: 0.28rem 0.75rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
+
+  svg {
+    flex-shrink: 0;
+  }
+
+  &:hover {
+    background-color: var(--theme-accent-soft, #e0e7ff);
+    color: var(--theme-accent, #6366f1);
+    border-color: var(--theme-accent-soft, #e0e7ff);
+  }
+}
+
 .feedback {
   margin-top: 0.25rem;
   animation: popIn 0.3s ease-out;

@@ -37,7 +37,9 @@
     cursor: grabbing;
   }
 
-  svg {
+  // Cible uniquement le svg racine de ComposableMap, pas les icônes
+  // imbriquées plus profondément (ex. le bouton "Passer" de CountryCard).
+  > svg {
     display: block;
     width: 100%;
     height: 100%;
