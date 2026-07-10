@@ -79,15 +79,48 @@ export default function GameSetupModal({
               {GAME_MODE_LABELS[m]}
             </button>
           ))}
+        </div>
+
+        <h3 className={styles.sectionTitle}>Options</h3>
+
+        <div className={styles.settingRow}>
+          <input
+            id="setup-anecdotes"
+            type="checkbox"
+            disabled
+            className={styles.checkbox}
+          />
+          <label htmlFor="setup-anecdotes" className={styles.settingLabelDisabled}>
+            Activer les anecdotes
+          </label>
           <button
             type="button"
-            className={`${styles.modeButton} ${
-              suddenDeath ? styles.modeButtonActive : ""
-            }`}
-            onClick={() => onSuddenDeathChange(!suddenDeath)}
-            aria-pressed={suddenDeath}
+            className={styles.infoButton}
+            data-tooltip="Fonctionnalité pas encore disponible : une anecdote générée par IA sur chaque pays trouvé."
+            aria-label="En savoir plus sur les anecdotes"
           >
-            Mort subite
+            i
+          </button>
+        </div>
+
+        <div className={styles.settingRow}>
+          <input
+            id="setup-sudden-death"
+            type="checkbox"
+            checked={suddenDeath}
+            onChange={(e) => onSuddenDeathChange(e.target.checked)}
+            className={styles.checkbox}
+          />
+          <label htmlFor="setup-sudden-death" className={styles.settingLabel}>
+            💀 Mort subite
+          </label>
+          <button
+            type="button"
+            className={styles.infoButton}
+            data-tooltip="Une seule erreur termine la partie."
+            aria-label="En savoir plus sur la mort subite"
+          >
+            i
           </button>
         </div>
 
@@ -101,6 +134,7 @@ export default function GameSetupModal({
                     type="checkbox"
                     checked={selectedZones.includes(zone)}
                     onChange={() => toggleZone(zone)}
+                    className={styles.checkbox}
                   />
                   {CONTINENT_LABELS[zone]}
                 </label>

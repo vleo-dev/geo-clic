@@ -17,6 +17,10 @@ export type Theme = {
   pin: string;
   // Interface (menus, modale, cartes flottantes)
   surface: string;
+  // Variante translucide de `surface`, pour les panneaux flottants avec
+  // effet de flou (façon "verre dépoli") qui laissent deviner la carte
+  // derrière eux.
+  surfaceGlass: string;
   surfaceText: string;
   surfaceMuted: string;
   surfaceBorder: string;
@@ -41,6 +45,7 @@ export const THEMES: Theme[] = [
     wrong: "#e63946",
     pin: "#c2410c",
     surface: "#f6f1e4",
+    surfaceGlass: "rgba(246, 241, 228, 0.78)",
     surfaceText: "#2b2115",
     surfaceMuted: "#6b5d47",
     surfaceBorder: "#e2d6bd",
@@ -52,15 +57,19 @@ export const THEMES: Theme[] = [
     name: "classique",
     label: "Classique",
     ocean: "#3f7ea6",
-    oceanDeep: "#1e4d6b",
+    oceanDeep: "#123049",
     text: "#1f2937",
-    landPalette: ["#f1e3c6", "#d9bb84", "#c99a5b", "#a97c50", "#8c6239"],
+    // Atlas classique : dominante sable/brun, mais avec du parchemin clair,
+    // du blé doré, de l'ocre et de la terre cuite — pas un simple dégradé
+    // de brun uniforme.
+    landPalette: ["#f2e4c4", "#e3c17c", "#cf9c5c", "#b97b4a", "#8a5a35"],
     landBorder: "#5c4326",
     hover: "#ffd166",
     found: "#2f9e44",
     wrong: "#e63946",
     pin: "#7c3aed",
     surface: "#ffffff",
+    surfaceGlass: "rgba(255, 255, 255, 0.78)",
     surfaceText: "#1f2937",
     surfaceMuted: "#6b7280",
     surfaceBorder: "#e5e7eb",
@@ -81,6 +90,10 @@ export const THEMES: Theme[] = [
     wrong: "#f87171",
     pin: "#fbbf24",
     surface: "#111827",
+    // Un peu plus opaque que les autres thèmes : le fond sombre + les
+    // terres contrastées dessous rendent le texte moins lisible en verre
+    // dépoli trop fin.
+    surfaceGlass: "rgba(17, 24, 39, 0.85)",
     surfaceText: "#e2e8f0",
     surfaceMuted: "#94a3b8",
     surfaceBorder: "#1f2937",
@@ -101,6 +114,7 @@ export const THEMES: Theme[] = [
     wrong: "#ff6b6b",
     pin: "#5b5fc7",
     surface: "#fff8fb",
+    surfaceGlass: "rgba(255, 248, 251, 0.78)",
     surfaceText: "#1f2937",
     surfaceMuted: "#8a7f99",
     surfaceBorder: "#f0d9e4",
@@ -150,11 +164,13 @@ export function useThemeIndex(): number {
 export function themeCssVars(theme: Theme): CSSProperties {
   return {
     "--theme-surface": theme.surface,
+    "--theme-surface-glass": theme.surfaceGlass,
     "--theme-surface-text": theme.surfaceText,
     "--theme-surface-muted": theme.surfaceMuted,
     "--theme-surface-border": theme.surfaceBorder,
     "--theme-accent": theme.accent,
     "--theme-accent-text": theme.accentText,
     "--theme-accent-soft": theme.accentSoft,
+    "--theme-wrong": theme.wrong,
   } as CSSProperties;
 }
