@@ -1,20 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { DIFFICULTIES, DIFFICULTY_LABELS, Difficulty } from "@/lib/difficulty";
 import { THEMES } from "@/lib/theme";
 import styles from "./SettingsMenu.module.scss";
 
 type SettingsMenuProps = {
-  difficulty: Difficulty;
-  onDifficultyChange: (difficulty: Difficulty) => void;
   themeIndex: number;
   onThemeChange: (index: number) => void;
 };
 
 export default function SettingsMenu({
-  difficulty,
-  onDifficultyChange,
   themeIndex,
   onThemeChange,
 }: SettingsMenuProps) {
@@ -33,7 +28,6 @@ export default function SettingsMenu({
           width="20"
           height="20"
           fill="none"
-          stroke="#333"
           strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -45,22 +39,6 @@ export default function SettingsMenu({
 
       {open && (
         <div className={styles.panel}>
-          <h3 className={styles.sectionTitle}>Difficulté</h3>
-          <ul className={styles.optionList}>
-            {DIFFICULTIES.map((d) => (
-              <li key={d}>
-                <button
-                  className={`${styles.option} ${
-                    d === difficulty ? styles.optionActive : ""
-                  }`}
-                  onClick={() => onDifficultyChange(d)}
-                >
-                  {DIFFICULTY_LABELS[d]}
-                </button>
-              </li>
-            ))}
-          </ul>
-
           <h3 className={styles.sectionTitle}>Thème</h3>
           <ul className={styles.optionList}>
             {THEMES.map((theme, index) => (

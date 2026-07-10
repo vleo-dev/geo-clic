@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
+import type { Session } from "next-auth";
 import {
   ComposableMap,
   Geographies,
@@ -9,43 +10,28 @@ import {
   Marker,
   ZoomableGroup,
 } from "react-simple-maps";
+import type { ProjectionFunction } from "react-simple-maps";
 import { geoCentroid } from "d3-geo";
-import { feature, neighbors } from "topojson-client";
-import type { Feature, FeatureCollection, Geometry } from "geojson";
-import { THEMES } from "@/lib/theme";
-import { assignMapColors } from "@/lib/mapColoring";
+import type { Feature, Geometry } from "geojson";
+import { Theme, THEMES, themeCssVars } from "@/lib/theme";
 import { haversineDistance, getFeedback, FeedbackLevel } from "@/lib/geo";
-import { MICRO_STATES } from "@/lib/microStates";
-import { COUNTRY_CONTINENT } from "@/lib/continents";
-import { COUNTRY_INFO } from "@/lib/countryInfo";
-import { Difficulty, DIFFICULTY_LIVES } from "@/lib/difficulty";
-import { Zone } from "@/lib/zones";
+import {
+  GameModeId,
+  MODE_SUPPORTS_ZONE,
+  MODE_UNIT_LABEL,
+} from "@/lib/gameModes";
+import { loadModeData, ModeData } from "@/lib/modes";
+import { ZoneSelection, zoneSelectionToStorage } from "@/lib/zones";
 import { SpecialFilter } from "@/lib/specialFilters";
 import { LANDLOCKED_COUNTRIES, ISLAND_COUNTRIES } from "@/lib/countryTraits";
-import FilterMenu from "@/components/FilterMenu";
+import GameSetupModal from "@/components/GameSetupModal";
 import CountryCard from "@/components/CountryCard";
 import SettingsMenu from "@/components/SettingsMenu";
 import AccountButton from "@/components/AccountButton";
 import styles from "./page.module.scss";
 
-// Résolution 50m (frontières nettement plus fines que la 110m par défaut).
-const geoUrl = "https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json";
-
-const LAND_COLOR_COUNT = 5;
-
-// Le dataset 50m contient ~240 entités (dont des territoires/dépendances non
-// souverains). On ne garde que les pays déjà retenus (mêmes noms qu'en 110m,
-// hors micro-États gérés séparément via des pins).
-const MICRO_STATE_NAMES = new Set(MICRO_STATES.map((m) => m.name));
-const ACCEPTED_COUNTRY_NAMES = new Set(
-  Object.keys(COUNTRY_INFO).filter((name) => !MICRO_STATE_NAMES.has(name)),
-);
-
-type CountryProperties = { name: string };
-type Country = Feature<Geometry, CountryProperties>;
-type TopologyGeometry = { properties?: { name?: string } };
-type TopologyObject = { type: string; geometries?: TopologyGeometry[] };
-type Topology = { objects: Record<string, TopologyObject> };
+type RegionProperties = { name: string };
+type Region = Feature<Geometry, RegionProperties>;
 
 function pickRandom(names: string[]): string {
   return names[Math.floor(Math.random() * names.length)];
@@ -61,12 +47,18 @@ function pickNextTarget(
 }
 
 function filterNames(
-  names: string[],
-  zone: Zone,
+  modeData: ModeData,
+  mode: GameModeId,
+  zones: ZoneSelection,
   specialFilter: SpecialFilter,
 ): string[] {
-  return names.filter((name) => {
-    if (zone !== "ALL" && COUNTRY_CONTINENT[name] !== zone) return false;
+  if (!MODE_SUPPORTS_ZONE[mode]) return modeData.names;
+
+  return modeData.names.filter((name) => {
+    const continent = modeData.zoneOf?.(name);
+    if (zones.length > 0 && (!continent || !zones.includes(continent))) {
+      return false;
+    }
     if (specialFilter === "landlocked" && !LANDLOCKED_COUNTRIES.has(name)) {
       return false;
     }
@@ -77,121 +69,49 @@ function filterNames(
   });
 }
 
-export default function Home() {
-  const [difficulty, setDifficulty] = useState<Difficulty>("moyen");
-  const [zone, setZone] = useState<Zone>("ALL");
-  const [specialFilter, setSpecialFilter] = useState<SpecialFilter>("none");
-  const maxLives = DIFFICULTY_LIVES[difficulty];
+type GamePlayProps = {
+  modeData: ModeData;
+  mode: GameModeId;
+  names: string[];
+  zoneStorage: string;
+  suddenDeath: boolean;
+  session: Session | null;
+  theme: Theme;
+};
 
-  const [lives, setLives] = useState(maxLives);
+// Une partie = un montage de GamePlay. Changer de mode, de zone, de filtre
+// spécial ou de mort subite change la `key` côté parent, ce qui démonte/
+// remonte ce composant et réinitialise tout son état d'un coup — plus
+// simple et plus sûr qu'un effet qui resynchronise manuellement chaque
+// morceau d'état.
+function GamePlay({
+  modeData,
+  mode,
+  names,
+  zoneStorage,
+  suddenDeath,
+  session,
+  theme,
+}: GamePlayProps) {
   const [found, setFound] = useState<Set<string>>(new Set());
-  const [target, setTarget] = useState<string | null>(null);
-  const [feedback, setFeedback] = useState<FeedbackLevel | null>(null);
-  const [allNames, setAllNames] = useState<string[]>([]);
-  const [gameOver, setGameOver] = useState(false);
-  const [centroids, setCentroids] = useState<Record<string, [number, number]>>(
-    {},
+  const [target, setTarget] = useState<string | null>(() =>
+    names.length > 0 ? pickRandom(names) : null,
   );
-  const [geoData, setGeoData] = useState<FeatureCollection<
-    Geometry,
-    CountryProperties
-  > | null>(null);
-  const [countryColorIndex, setCountryColorIndex] = useState<
-    Record<string, number>
-  >({});
-  const [themeIndex, setThemeIndex] = useState(0);
+  const [feedback, setFeedback] = useState<FeedbackLevel | null>(null);
+  const [gameOver, setGameOver] = useState(false);
   const [feedbackKey, setFeedbackKey] = useState(0);
-  const theme = THEMES[themeIndex];
-
-  const { data: session } = useSession();
-  const [gameStartedAt, setGameStartedAt] = useState(() => Date.now());
+  const [gameStartedAt] = useState(() => Date.now());
   const gameRecordedRef = useRef(false);
 
-  const activeNames = useMemo(
-    () => filterNames(allNames, zone, specialFilter),
-    [allNames, zone, specialFilter],
+  // react-simple-maps attend, quand `projection` est une fonction, une
+  // instance de projection d3-geo déjà construite (elle est elle-même
+  // `typeof === "function"`) — pas une factory à appeler avec width/height.
+  const mapWidth = modeData.mapView?.width ?? 800;
+  const mapHeight = modeData.mapView?.height ?? 395;
+  const projection = useMemo(
+    () => modeData.mapView?.projection(mapWidth, mapHeight),
+    [modeData, mapWidth, mapHeight],
   );
-
-  useEffect(() => {
-    fetch(geoUrl)
-      .then((res) => res.json())
-      .then((topology: Topology) => {
-        const objectKey = Object.keys(topology.objects)[0];
-        const rawGeometries = (
-          topology.objects[objectKey].geometries ?? []
-        ).filter(
-          (g) =>
-            g.properties?.name &&
-            ACCEPTED_COUNTRY_NAMES.has(g.properties.name),
-        );
-        const featureCollection = feature(topology, {
-          type: "GeometryCollection",
-          geometries: rawGeometries,
-        }) as FeatureCollection<Geometry, CountryProperties>;
-
-        const map: Record<string, [number, number]> = {};
-        const names: string[] = [];
-
-        featureCollection.features.forEach((geo) => {
-          const name = geo.properties.name;
-          map[name] = geoCentroid(geo) as [number, number];
-          names.push(name);
-        });
-
-        MICRO_STATES.forEach((micro) => {
-          map[micro.name] = micro.coordinates;
-          names.push(micro.name);
-        });
-
-        const adjacency = neighbors(rawGeometries);
-        const colorIndices = assignMapColors(adjacency, LAND_COLOR_COUNT);
-        const colorMap: Record<string, number> = {};
-        featureCollection.features.forEach((geo, i) => {
-          colorMap[geo.properties.name] = colorIndices[i];
-        });
-
-        setGeoData(featureCollection);
-        setCentroids(map);
-        setAllNames(names);
-        setCountryColorIndex(colorMap);
-        setTarget(pickRandom(names));
-      });
-  }, []);
-
-  function pickNewTarget(excluding: Set<string>, names: string[]) {
-    const next = pickNextTarget(excluding, names);
-    if (next === null) {
-      setGameOver(true);
-      setTarget(null);
-      return;
-    }
-    setTarget(next);
-  }
-
-  function startNewGame(names: string[], newMaxLives: number) {
-    setFound(new Set());
-    setFeedback(null);
-    setGameOver(false);
-    setLives(newMaxLives);
-    setTarget(names.length > 0 ? pickRandom(names) : null);
-    setGameStartedAt(Date.now());
-    gameRecordedRef.current = false;
-  }
-
-  function handleDifficultyChange(next: Difficulty) {
-    setDifficulty(next);
-    startNewGame(activeNames, DIFFICULTY_LIVES[next]);
-  }
-
-  function handleZoneChange(next: Zone) {
-    setZone(next);
-    startNewGame(filterNames(allNames, next, specialFilter), maxLives);
-  }
-
-  function handleSpecialFilterChange(next: SpecialFilter) {
-    setSpecialFilter(next);
-    startNewGame(filterNames(allNames, zone, next), maxLives);
-  }
 
   useEffect(() => {
     if (!gameOver || !session?.user || gameRecordedRef.current) return;
@@ -203,17 +123,14 @@ export default function Home() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         score: found.size,
-        difficulty,
-        zone,
+        mode,
+        zone: zoneStorage,
         durationSeconds,
       }),
     });
-  }, [gameOver, session, found, difficulty, zone, gameStartedAt]);
+  }, [gameOver, session, found, mode, zoneStorage, gameStartedAt]);
 
-  function handleCountryClick(
-    name: string,
-    coordinates: [number, number],
-  ) {
+  function handleTargetClick(name: string, coordinates: [number, number]) {
     if (!target || gameOver) return;
 
     if (name === target) {
@@ -221,125 +138,233 @@ export default function Home() {
       newFound.add(target);
       setFound(newFound);
       setFeedback(null);
-      pickNewTarget(newFound, activeNames);
+      const next = pickNextTarget(newFound, names);
+      if (next === null) {
+        setGameOver(true);
+        setTarget(null);
+      } else {
+        setTarget(next);
+      }
       return;
     }
 
-    const distance = haversineDistance(coordinates, centroids[target]);
+    const distance = haversineDistance(coordinates, modeData.centroids[target]);
     const level = getFeedback(distance);
     setFeedback(level);
     setFeedbackKey((k) => k + 1);
-
-    const newLives = lives - 1;
-    setLives(newLives);
-    if (newLives <= 0) setGameOver(true);
+    if (suddenDeath) setGameOver(true);
   }
+
+  const label = target ? modeData.getLabel(target) : null;
+
+  return (
+    <>
+      <CountryCard
+        target={target}
+        label={label}
+        gameOver={gameOver}
+        foundCount={found.size}
+        unitLabel={MODE_UNIT_LABEL[mode]}
+        feedback={feedback}
+        feedbackKey={feedbackKey}
+      />
+
+      {modeData.geoData && (
+        <ComposableMap
+          width={mapWidth}
+          height={mapHeight}
+          projection={
+            // react-simple-maps utilise la valeur telle quelle quand
+            // `projection` est une fonction (elle n'est pas appelée) — on
+            // lui passe donc directement l'instance de projection d3-geo
+            // déjà construite via `fitSize`, malgré le typage de la lib
+            // qui suggère (à tort) une factory (width, height) => projection.
+            projection
+              ? (projection as unknown as ProjectionFunction)
+              : "geoEqualEarth"
+          }
+          projectionConfig={projection ? undefined : { scale: 147 }}
+          preserveAspectRatio="xMidYMid slice"
+        >
+          <ZoomableGroup>
+            <Geographies geography={modeData.geoData}>
+              {({
+                geographies,
+              }: {
+                geographies: Array<Region & { rsmKey: string }>;
+              }) =>
+                geographies.map((geo) => {
+                  const name = geo.properties.name;
+                  const isFound = found.has(name);
+                  const clickable = modeData.polygonsClickable;
+                  return (
+                    <Geography
+                      key={geo.rsmKey}
+                      geography={geo}
+                      onClick={
+                        clickable
+                          ? () =>
+                              handleTargetClick(
+                                name,
+                                geoCentroid(geo) as [number, number],
+                              )
+                          : undefined
+                      }
+                      style={{
+                        default: {
+                          fill: isFound
+                            ? theme.found
+                            : theme.landPalette[modeData.colorIndex[name] ?? 0],
+                          stroke: "none",
+                          outline: "none",
+                        },
+                        hover: {
+                          fill: isFound
+                            ? theme.found
+                            : clickable
+                              ? theme.hover
+                              : theme.landPalette[
+                                  modeData.colorIndex[name] ?? 0
+                                ],
+                          outline: "none",
+                          cursor: clickable ? "pointer" : "default",
+                        },
+                        pressed: {
+                          fill: clickable
+                            ? theme.found
+                            : theme.landPalette[modeData.colorIndex[name] ?? 0],
+                          outline: "none",
+                        },
+                      }}
+                    />
+                  );
+                })
+              }
+            </Geographies>
+
+            {modeData.markers.map((marker) => {
+              const isFound = found.has(marker.name);
+              return (
+                <Marker
+                  key={marker.name}
+                  coordinates={marker.coordinates}
+                  onClick={() =>
+                    handleTargetClick(marker.name, marker.coordinates)
+                  }
+                >
+                  <circle
+                    r={1.6}
+                    fill={isFound ? theme.found : theme.pin}
+                    fillOpacity={0.55}
+                    stroke="#ffffff"
+                    strokeWidth={0.3}
+                    style={{ cursor: "pointer" }}
+                  />
+                </Marker>
+              );
+            })}
+          </ZoomableGroup>
+        </ComposableMap>
+      )}
+    </>
+  );
+}
+
+export default function Home() {
+  const [mode, setMode] = useState<GameModeId>("pays");
+  const [selectedZones, setSelectedZones] = useState<ZoneSelection>([]);
+  const [specialFilter, setSpecialFilter] = useState<SpecialFilter>("none");
+  const [suddenDeath, setSuddenDeath] = useState(false);
+  const [setupOpen, setSetupOpen] = useState(true);
+  const [themeIndex, setThemeIndex] = useState(0);
+  const theme = THEMES[themeIndex];
+
+  const [modeDataEntry, setModeDataEntry] = useState<{
+    mode: GameModeId;
+    data: ModeData;
+  } | null>(null);
+
+  const { data: session } = useSession();
+
+  // Ignore les données encore en cache pendant le chargement d'un nouveau
+  // mode, pour ne pas afficher un fond de carte incohérent avec `mode`.
+  const modeData = modeDataEntry?.mode === mode ? modeDataEntry.data : null;
+
+  useEffect(() => {
+    let cancelled = false;
+    loadModeData(mode).then((data) => {
+      if (!cancelled) setModeDataEntry({ mode, data });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [mode]);
+
+  const activeNames = useMemo(
+    () =>
+      modeData ? filterNames(modeData, mode, selectedZones, specialFilter) : [],
+    [modeData, mode, selectedZones, specialFilter],
+  );
+
+  const zoneStorage = zoneSelectionToStorage(selectedZones);
+  const gameKey = `${mode}|${selectedZones.join(",")}|${specialFilter}|${suddenDeath}`;
 
   return (
     <main
       className={styles.main}
       style={{
+        ...themeCssVars(theme),
         backgroundImage: `linear-gradient(160deg, ${theme.ocean}, ${theme.oceanDeep})`,
         color: theme.text,
       }}
     >
-      <FilterMenu
-        zone={zone}
-        onZoneChange={handleZoneChange}
+      <button
+        type="button"
+        className={styles.setupButton}
+        onClick={() => setSetupOpen(true)}
+        aria-label="Configuration de la partie"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          width="20"
+          height="20"
+          fill="none"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+        </svg>
+      </button>
+
+      <GameSetupModal
+        open={setupOpen}
+        onClose={() => setSetupOpen(false)}
+        mode={mode}
+        onModeChange={setMode}
+        selectedZones={selectedZones}
+        onZonesChange={setSelectedZones}
         specialFilter={specialFilter}
-        onSpecialFilterChange={handleSpecialFilterChange}
+        onSpecialFilterChange={setSpecialFilter}
+        suddenDeath={suddenDeath}
+        onSuddenDeathChange={setSuddenDeath}
       />
-      <SettingsMenu
-        difficulty={difficulty}
-        onDifficultyChange={handleDifficultyChange}
-        themeIndex={themeIndex}
-        onThemeChange={setThemeIndex}
-      />
+
+      <SettingsMenu themeIndex={themeIndex} onThemeChange={setThemeIndex} />
       <AccountButton />
 
-      <CountryCard
-        lives={lives}
-        maxLives={maxLives}
-        target={target}
-        gameOver={gameOver}
-        foundCount={found.size}
-        feedback={feedback}
-        feedbackKey={feedbackKey}
-      />
-
       <div className={styles.mapWrapper}>
-        {geoData && (
-          <ComposableMap
-            width={800}
-            height={395}
-            projectionConfig={{ scale: 147 }}
-            preserveAspectRatio="xMidYMid slice"
-          >
-            <ZoomableGroup>
-              <Geographies geography={geoData}>
-                {({ geographies }: { geographies: Array<Country & { rsmKey: string }> }) =>
-                  geographies.map((geo) => {
-                    const name = geo.properties.name;
-                    const isFound = found.has(name);
-                    return (
-                      <Geography
-                        key={geo.rsmKey}
-                        geography={geo}
-                        onClick={() =>
-                          handleCountryClick(
-                            name,
-                            geoCentroid(geo) as [number, number],
-                          )
-                        }
-                        style={{
-                          default: {
-                            fill: isFound
-                              ? theme.found
-                              : theme.landPalette[
-                                  countryColorIndex[name] ?? 0
-                                ],
-                            stroke: "none",
-                            outline: "none",
-                          },
-                          hover: {
-                            fill: isFound ? theme.found : theme.hover,
-                            outline: "none",
-                            cursor: "pointer",
-                          },
-                          pressed: {
-                            fill: theme.found,
-                            outline: "none",
-                          },
-                        }}
-                      />
-                    );
-                  })
-                }
-              </Geographies>
-
-              {MICRO_STATES.map((micro) => {
-                const isFound = found.has(micro.name);
-                return (
-                  <Marker
-                    key={micro.name}
-                    coordinates={micro.coordinates}
-                    onClick={() =>
-                      handleCountryClick(micro.name, micro.coordinates)
-                    }
-                  >
-                    <circle
-                      r={1.6}
-                      fill={isFound ? theme.found : theme.pin}
-                      fillOpacity={0.55}
-                      stroke="#ffffff"
-                      strokeWidth={0.3}
-                      style={{ cursor: "pointer" }}
-                    />
-                  </Marker>
-                );
-              })}
-            </ZoomableGroup>
-          </ComposableMap>
+        {modeData && (
+          <GamePlay
+            key={gameKey}
+            modeData={modeData}
+            mode={mode}
+            names={activeNames}
+            zoneStorage={zoneStorage}
+            suddenDeath={suddenDeath}
+            session={session}
+            theme={theme}
+          />
         )}
       </div>
     </main>

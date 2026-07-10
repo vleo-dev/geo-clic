@@ -1,53 +1,44 @@
 "use client";
 
-import { getCountryInfo } from "@/lib/countryInfo";
 import { FeedbackLevel } from "@/lib/geo";
+import type { ModeLabel } from "@/lib/modes";
 import styles from "./CountryCard.module.scss";
 
 type CountryCardProps = {
-  lives: number;
-  maxLives: number;
   target: string | null;
+  label: ModeLabel | null;
   gameOver: boolean;
   foundCount: number;
+  unitLabel: string;
   feedback: FeedbackLevel | null;
   feedbackKey: number;
 };
 
 export default function CountryCard({
-  lives,
-  maxLives,
   target,
+  label,
   gameOver,
   foundCount,
+  unitLabel,
   feedback,
   feedbackKey,
 }: CountryCardProps) {
-  const targetInfo = target ? getCountryInfo(target) : null;
-
   return (
     <div className={styles.card}>
-      <div className={styles.lives}>
-        <span className={styles.heartIcon}>♥</span>
-        <div className={styles.livesTrack}>
-          <div
-            className={styles.livesFill}
-            style={{ width: `${(lives / maxLives) * 100}%` }}
-          />
-        </div>
-        <span className={styles.livesCount}>
-          {lives}/{maxLives}
-        </span>
-      </div>
-
-      {!gameOver && targetInfo ? (
+      {!gameOver && label ? (
         <div key={target} className={styles.target}>
-          <span className={styles.flag}>{targetInfo.flag}</span>
-          <strong>{targetInfo.fr}</strong>
+          {label.title ? (
+            <>
+              {label.flag && <span className={styles.flag}>{label.flag}</span>}
+              <strong>{label.title}</strong>
+            </>
+          ) : (
+            label.flag && <span className={styles.flagOnly}>{label.flag}</span>
+          )}
         </div>
       ) : (
         <div className={styles.target}>
-          Partie terminée ! Score : {foundCount} pays trouvés
+          Partie terminée ! Score : {foundCount} {unitLabel}
         </div>
       )}
 

@@ -7,6 +7,27 @@
   overflow: hidden;
 }
 
+.setupButton {
+  position: fixed;
+  top: 1rem;
+  left: 1rem;
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 8px;
+  background-color: var(--theme-surface, rgba(255, 255, 255, 0.9));
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+
+  svg {
+    stroke: var(--theme-surface-text, #333);
+  }
+}
+
 .mapWrapper {
   width: 100%;
   height: 100%;

@@ -2,8 +2,8 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { DIFFICULTY_LABELS, Difficulty } from "@/lib/difficulty";
-import { ZONE_LABELS, Zone } from "@/lib/zones";
+import { GAME_MODE_LABELS, GameModeId, MODE_SUPPORTS_ZONE } from "@/lib/gameModes";
+import { formatZoneSelection, zoneSelectionFromStorage } from "@/lib/zones";
 import styles from "./historique.module.scss";
 
 function formatDuration(seconds: number): string {
@@ -41,29 +41,33 @@ export default async function HistoriquePage() {
               <tr>
                 <th>Date</th>
                 <th>Score</th>
-                <th>Difficulté</th>
+                <th>Mode</th>
                 <th>Zone</th>
                 <th>Durée</th>
               </tr>
             </thead>
             <tbody>
-              {games.map((game) => (
-                <tr key={game.id}>
-                  <td>
-                    {new Intl.DateTimeFormat("fr-FR", {
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                    }).format(game.playedAt)}
-                  </td>
-                  <td>{game.score}</td>
-                  <td>
-                    {DIFFICULTY_LABELS[game.difficulty as Difficulty] ??
-                      game.difficulty}
-                  </td>
-                  <td>{ZONE_LABELS[game.zone as Zone] ?? game.zone}</td>
-                  <td>{formatDuration(game.durationSeconds)}</td>
-                </tr>
-              ))}
+              {games.map((game) => {
+                const mode = game.mode as GameModeId;
+                return (
+                  <tr key={game.id}>
+                    <td>
+                      {new Intl.DateTimeFormat("fr-FR", {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      }).format(game.playedAt)}
+                    </td>
+                    <td>{game.score}</td>
+                    <td>{GAME_MODE_LABELS[mode] ?? game.mode}</td>
+                    <td>
+                      {MODE_SUPPORTS_ZONE[mode]
+                        ? formatZoneSelection(zoneSelectionFromStorage(game.zone))
+                        : "—"}
+                    </td>
+                    <td>{formatDuration(game.durationSeconds)}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

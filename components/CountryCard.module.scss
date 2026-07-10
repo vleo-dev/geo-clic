@@ -27,50 +27,15 @@
   min-width: 260px;
   max-width: min(90vw, 420px);
   padding: 0.75rem 1.5rem 0.9rem;
-  background-color: rgba(255, 255, 255, 0.85);
+  background-color: var(--theme-surface, rgba(255, 255, 255, 0.85));
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border-radius: 18px;
   box-shadow:
     0 10px 30px rgba(0, 0, 0, 0.18),
     0 1px 2px rgba(0, 0, 0, 0.08);
-  color: #1f2937;
+  color: var(--theme-surface-text, #1f2937);
   text-align: center;
-}
-
-.lives {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  width: 100%;
-}
-
-.heartIcon {
-  color: #e63946;
-  font-size: 1.1rem;
-  line-height: 1;
-}
-
-.livesTrack {
-  flex: 1;
-  height: 6px;
-  background-color: rgba(0, 0, 0, 0.1);
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.livesFill {
-  height: 100%;
-  background-color: #e63946;
-  border-radius: 4px;
-  transition: width 0.3s ease;
-}
-
-.livesCount {
-  font-size: 0.8rem;
-  font-variant-numeric: tabular-nums;
-  opacity: 0.75;
-  white-space: nowrap;
 }
 
 .target {
@@ -84,6 +49,11 @@
 
 .flag {
   font-size: 1.7rem;
+  line-height: 1;
+}
+
+.flagOnly {
+  font-size: 5rem;
   line-height: 1;
 }
 
@@ -101,7 +71,7 @@
   &Track {
     width: 200px;
     height: 10px;
-    background-color: #e5e7eb;
+    background-color: var(--theme-surface-border, #e5e7eb);
     border-radius: 6px;
     overflow: hidden;
     margin-top: 4px;

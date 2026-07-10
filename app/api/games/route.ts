@@ -9,16 +9,16 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const { score, difficulty, zone, durationSeconds } = body as {
+  const { score, mode, zone, durationSeconds } = body as {
     score?: number;
-    difficulty?: string;
+    mode?: string;
     zone?: string;
     durationSeconds?: number;
   };
 
   if (
     typeof score !== "number" ||
-    typeof difficulty !== "string" ||
+    typeof mode !== "string" ||
     typeof zone !== "string" ||
     typeof durationSeconds !== "number"
   ) {
@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     data: {
       userId: session.user.id,
       score,
-      difficulty,
+      mode,
       zone,
       durationSeconds,
     },

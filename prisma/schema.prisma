@@ -63,7 +63,7 @@ model GameHistory {
   userId          String
   playedAt        DateTime @default(now())
   score           Int
-  difficulty      String
+  mode            String
   zone            String
   durationSeconds Int
 

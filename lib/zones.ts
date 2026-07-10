@@ -2,12 +2,17 @@
 
 import { ContinentCode } from "./continents";
 
-export type Zone = ContinentCode | "ALL";
+export const CONTINENTS: ContinentCode[] = [
+  "EU",
+  "AS",
+  "AF",
+  "NA",
+  "SA",
+  "OC",
+  "AN",
+];
 
-export const ZONES: Zone[] = ["ALL", "EU", "AS", "AF", "NA", "SA", "OC", "AN"];
-
-export const ZONE_LABELS: Record<Zone, string> = {
-  ALL: "Monde entier",
+export const CONTINENT_LABELS: Record<ContinentCode, string> = {
   EU: "Europe",
   AS: "Asie",
   AF: "Afrique",
@@ -16,3 +21,22 @@ export const ZONE_LABELS: Record<Zone, string> = {
   OC: "Océanie",
   AN: "Antarctique",
 };
+
+// Une sélection vide = aucune restriction (monde entier).
+export type ZoneSelection = ContinentCode[];
+
+export function formatZoneSelection(zones: ZoneSelection): string {
+  if (zones.length === 0) return "Monde entier";
+  return zones.map((z) => CONTINENT_LABELS[z]).join(", ");
+}
+
+export function zoneSelectionToStorage(zones: ZoneSelection): string {
+  return zones.length === 0 ? "ALL" : zones.join(",");
+}
+
+export function zoneSelectionFromStorage(value: string): ZoneSelection {
+  if (value === "ALL" || value === "") return [];
+  return value
+    .split(",")
+    .filter((v): v is ContinentCode => CONTINENTS.includes(v as ContinentCode));
+}

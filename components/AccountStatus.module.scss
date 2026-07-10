@@ -1,0 +1,49 @@
+// components/AccountStatus.module.scss
+
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.identity {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.2rem 0.6rem 0.6rem;
+  margin-bottom: 0.25rem;
+  border-bottom: 1px solid var(--theme-surface-border, #eee);
+  color: var(--theme-surface-text, #1f2937);
+  font-size: 0.9rem;
+
+  svg {
+    fill: var(--theme-surface-text, #333);
+  }
+}
+
+.avatarImg {
+  border-radius: 50%;
+}
+
+.email {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--theme-surface-muted, #6b7280);
+}
+
+.option {
+  width: 100%;
+  text-align: left;
+  padding: 0.4rem 0.6rem;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--theme-surface-text, #1f2937);
+  cursor: pointer;
+  font-size: 0.9rem;
+  text-decoration: none;
+
+  &:hover {
+    background-color: var(--theme-surface-border, #f0f0f0);
+  }
+}

@@ -1,8 +1,11 @@
 // lib/theme.ts
 
+import type { CSSProperties } from "react";
+
 export type Theme = {
   name: string;
   label: string;
+  // Carte
   ocean: string;
   oceanDeep: string;
   text: string;
@@ -12,9 +15,39 @@ export type Theme = {
   found: string;
   wrong: string;
   pin: string;
+  // Interface (menus, modale, cartes flottantes)
+  surface: string;
+  surfaceText: string;
+  surfaceMuted: string;
+  surfaceBorder: string;
+  accent: string;
+  accentText: string;
+  accentSoft: string;
 };
 
 export const THEMES: Theme[] = [
+  {
+    name: "foret",
+    label: "Forêt",
+    ocean: "#4a7a4f",
+    oceanDeep: "#2b1d12",
+    text: "#f3ecd9",
+    // Sous-bois : vert dominant, mais avec de la mousse olive, de l'écorce
+    // brune et des feuilles dorées — pas un dégradé de vert uniforme.
+    landPalette: ["#a9c88c", "#748c5b", "#c9a66b", "#8a6d3b", "#d9c46a"],
+    landBorder: "#2e1f12",
+    hover: "#ffd166",
+    found: "#a3e635",
+    wrong: "#e63946",
+    pin: "#c2410c",
+    surface: "#f6f1e4",
+    surfaceText: "#2b2115",
+    surfaceMuted: "#6b5d47",
+    surfaceBorder: "#e2d6bd",
+    accent: "#3f6b4a",
+    accentText: "#ffffff",
+    accentSoft: "#dfe8d0",
+  },
   {
     name: "classique",
     label: "Classique",
@@ -27,6 +60,13 @@ export const THEMES: Theme[] = [
     found: "#2f9e44",
     wrong: "#e63946",
     pin: "#7c3aed",
+    surface: "#ffffff",
+    surfaceText: "#1f2937",
+    surfaceMuted: "#6b7280",
+    surfaceBorder: "#e5e7eb",
+    accent: "#6366f1",
+    accentText: "#ffffff",
+    accentSoft: "#e0e7ff",
   },
   {
     name: "sombre",
@@ -40,6 +80,13 @@ export const THEMES: Theme[] = [
     found: "#34d399",
     wrong: "#f87171",
     pin: "#fbbf24",
+    surface: "#111827",
+    surfaceText: "#e2e8f0",
+    surfaceMuted: "#94a3b8",
+    surfaceBorder: "#1f2937",
+    accent: "#7dd3fc",
+    accentText: "#0b1220",
+    accentSoft: "#1e3a4f",
   },
   {
     name: "pastel",
@@ -53,5 +100,27 @@ export const THEMES: Theme[] = [
     found: "#6bcf7f",
     wrong: "#ff6b6b",
     pin: "#5b5fc7",
+    surface: "#fff8fb",
+    surfaceText: "#1f2937",
+    surfaceMuted: "#8a7f99",
+    surfaceBorder: "#f0d9e4",
+    accent: "#5b5fc7",
+    accentText: "#ffffff",
+    accentSoft: "#e6e6fa",
   },
 ];
+
+// Variables CSS pour propager le thème aux composants d'interface (menus,
+// modale, cartes flottantes) qui vivent sous ce noeud, via `var(--nom)`
+// dans leurs styles SCSS.
+export function themeCssVars(theme: Theme): CSSProperties {
+  return {
+    "--theme-surface": theme.surface,
+    "--theme-surface-text": theme.surfaceText,
+    "--theme-surface-muted": theme.surfaceMuted,
+    "--theme-surface-border": theme.surfaceBorder,
+    "--theme-accent": theme.accent,
+    "--theme-accent-text": theme.accentText,
+    "--theme-accent-soft": theme.accentSoft,
+  } as CSSProperties;
+}
