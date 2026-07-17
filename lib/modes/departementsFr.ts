@@ -82,6 +82,7 @@ export async function loadDepartementsFrMode(): Promise<ModeData> {
     colorIndex,
     markers: [],
     polygonsClickable: true,
+    markersClickable: true,
     names,
     centroids,
     getLabel: (name) => ({ title: name }),

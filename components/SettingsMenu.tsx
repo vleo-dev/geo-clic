@@ -7,11 +7,15 @@ import styles from "./SettingsMenu.module.scss";
 type SettingsMenuProps = {
   themeIndex: number;
   onThemeChange: (index: number) => void;
+  soundEnabled: boolean;
+  onSoundEnabledChange: (enabled: boolean) => void;
 };
 
 export default function SettingsMenu({
   themeIndex,
   onThemeChange,
+  soundEnabled,
+  onSoundEnabledChange,
 }: SettingsMenuProps) {
   const [open, setOpen] = useState(false);
 
@@ -54,6 +58,18 @@ export default function SettingsMenu({
               </li>
             ))}
           </ul>
+
+          <h3 className={styles.sectionTitle}>Son</h3>
+          <button
+            type="button"
+            className={`${styles.option} ${
+              soundEnabled ? styles.optionActive : ""
+            }`}
+            onClick={() => onSoundEnabledChange(!soundEnabled)}
+            aria-pressed={soundEnabled}
+          >
+            {soundEnabled ? "🔊 Activé" : "🔇 Coupé"}
+          </button>
         </div>
       )}
     </div>

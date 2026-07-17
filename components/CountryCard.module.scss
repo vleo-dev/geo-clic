@@ -84,29 +84,3 @@
     border-color: var(--theme-accent-soft, #e0e7ff);
   }
 }
-
-.feedback {
-  margin-top: 0.25rem;
-  animation: popIn 0.3s ease-out;
-
-  &Label {
-    font-size: 1.05rem;
-    font-weight: bold;
-  }
-}
-
-.gauge {
-  &Track {
-    width: 200px;
-    height: 10px;
-    background-color: var(--theme-surface-border, #e5e7eb);
-    border-radius: 6px;
-    overflow: hidden;
-    margin-top: 4px;
-  }
-
-  &Fill {
-    height: 100%;
-    transition: width 0.3s ease;
-  }
-}

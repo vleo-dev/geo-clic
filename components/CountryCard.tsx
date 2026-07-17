@@ -1,6 +1,5 @@
 "use client";
 
-import { FeedbackLevel } from "@/lib/geo";
 import type { ModeLabel } from "@/lib/modes";
 import styles from "./CountryCard.module.scss";
 
@@ -10,8 +9,6 @@ type CountryCardProps = {
   gameOver: boolean;
   score: number;
   unitLabel: string;
-  feedback: FeedbackLevel | null;
-  feedbackKey: number;
   onPass: () => void;
 };
 
@@ -21,8 +18,6 @@ export default function CountryCard({
   gameOver,
   score,
   unitLabel,
-  feedback,
-  feedbackKey,
   onPass,
 }: CountryCardProps) {
   return (
@@ -66,26 +61,6 @@ export default function CountryCard({
           </svg>
           Passer
         </button>
-      )}
-
-      {feedback && !gameOver && (
-        <div key={feedbackKey} className={styles.feedback}>
-          <div
-            className={styles.feedbackLabel}
-            style={{ color: feedback.color }}
-          >
-            {feedback.emoji} {feedback.label}
-          </div>
-          <div className={styles.gaugeTrack}>
-            <div
-              className={styles.gaugeFill}
-              style={{
-                width: `${feedback.gaugePercent}%`,
-                backgroundColor: feedback.color,
-              }}
-            />
-          </div>
-        </div>
       )}
     </div>
   );

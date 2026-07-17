@@ -23,6 +23,7 @@ export async function loadPaysMode(): Promise<ModeData> {
     colorIndex,
     markers: MICRO_STATES,
     polygonsClickable: true,
+    markersClickable: true,
     names,
     centroids,
     zoneOf: (name) => COUNTRY_CONTINENT[name],

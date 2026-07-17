@@ -65,6 +65,7 @@ export async function loadEtatsUsMode(): Promise<ModeData> {
     colorIndex,
     markers: [],
     polygonsClickable: true,
+    markersClickable: true,
     names,
     centroids,
     getLabel: (name) => ({ title: name }),

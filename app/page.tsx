@@ -20,7 +20,19 @@ import {
   useThemeIndex,
   saveThemeIndex,
 } from "@/lib/theme";
-import { haversineDistance, getFeedback, FeedbackLevel } from "@/lib/geo";
+import {
+  haversineDistance,
+  computeFeedbackThresholds,
+  getFeedback,
+  FeedbackLevel,
+} from "@/lib/geo";
+import {
+  playFoundSound,
+  playErrorSound,
+  playGameOverSound,
+  useSoundEnabled,
+  saveSoundEnabled,
+} from "@/lib/sound";
 import {
   GameModeId,
   MODE_SUPPORTS_ZONE,
@@ -32,6 +44,8 @@ import { SpecialFilter } from "@/lib/specialFilters";
 import { LANDLOCKED_COUNTRIES, ISLAND_COUNTRIES } from "@/lib/countryTraits";
 import GameSetupModal from "@/components/GameSetupModal";
 import CountryCard from "@/components/CountryCard";
+import Thermometer from "@/components/Thermometer";
+import FoundPuff from "@/components/FoundPuff";
 import SettingsMenu from "@/components/SettingsMenu";
 import AccountButton from "@/components/AccountButton";
 import styles from "./page.module.scss";
@@ -108,6 +122,12 @@ function GamePlay({
 }: GamePlayProps) {
   const [found, setFound] = useState<Set<string>>(new Set());
   const [skipped, setSkipped] = useState<Set<string>>(new Set());
+  const [wrongClicks, setWrongClicks] = useState<Set<string>>(new Set());
+  const [puff, setPuff] = useState<{
+    coordinates: [number, number];
+    key: number;
+  } | null>(null);
+  const puffKeyRef = useRef(0);
   const [errors, setErrors] = useState(0);
   const [target, setTarget] = useState<string | null>(() =>
     names.length > 0 ? pickRandom(names) : null,
@@ -128,6 +148,30 @@ function GamePlay({
     () => modeData.mapView?.projection(mapWidth, mapHeight),
     [modeData, mapWidth, mapHeight],
   );
+
+  // Seuils chaud/froid calibrés sur l'ensemble complet du mode (tous les
+  // pays du monde, tous les départements...), pas sur la zone/le filtre
+  // actif : des seuils fixes (calibrés sur les distances "monde") rendraient
+  // le feedback inutilisable sur une carte resserrée (départements, États
+  // américains), mais les recalibrer sur une zone déjà restreinte (ex.
+  // "Europe" seule) resserre la distribution au point qu'un pays frontalier
+  // (ex. Norvège pour Suède, ~473km) tombe sous "Tiède" au lieu de
+  // "Brûlant" — l'échelle doit refléter la carte, pas le sous-ensemble de
+  // cibles tirées dessus.
+  const feedbackThresholds = useMemo(
+    () => computeFeedbackThresholds(modeData.centroids, modeData.names),
+    [modeData],
+  );
+
+  useEffect(() => {
+    if (gameOver) playGameOverSound();
+  }, [gameOver]);
+
+  useEffect(() => {
+    if (!puff) return;
+    const timer = setTimeout(() => setPuff(null), 750);
+    return () => clearTimeout(timer);
+  }, [puff]);
 
   useEffect(() => {
     if (!gameOver || !session?.user || gameRecordedRef.current) return;
@@ -155,6 +199,7 @@ function GamePlay({
     newFound.add(revealed);
     setFound(newFound);
     setFeedback(null);
+    setWrongClicks(new Set());
     const next = pickNextTarget(newFound, names);
     if (next === null) {
       setGameOver(true);
@@ -168,15 +213,20 @@ function GamePlay({
     if (!target || gameOver) return;
 
     if (name === target) {
+      playFoundSound();
+      puffKeyRef.current += 1;
+      setPuff({ coordinates, key: puffKeyRef.current });
       advance(target);
       return;
     }
 
     const distance = haversineDistance(coordinates, modeData.centroids[target]);
-    const level = getFeedback(distance);
+    const level = getFeedback(distance, feedbackThresholds);
     setFeedback(level);
     setFeedbackKey((k) => k + 1);
     setErrors((e) => e + 1);
+    setWrongClicks((prev) => new Set(prev).add(name));
+    playErrorSound();
     if (suddenDeath) setGameOver(true);
   }
 
@@ -213,9 +263,11 @@ function GamePlay({
         gameOver={gameOver}
         score={score}
         unitLabel={MODE_UNIT_LABEL[mode]}
-        feedback={feedback}
-        feedbackKey={feedbackKey}
         onPass={handlePass}
+      />
+      <Thermometer
+        feedback={gameOver ? null : feedback}
+        feedbackKey={feedbackKey}
       />
 
       {modeData.geoData && (
@@ -246,7 +298,10 @@ function GamePlay({
                 geographies.map((geo) => {
                   const name = geo.properties.name;
                   const isFound = found.has(name);
+                  const isWrong = wrongClicks.has(name);
                   const clickable = modeData.polygonsClickable;
+                  const baseFill =
+                    theme.landPalette[modeData.colorIndex[name] ?? 0];
                   return (
                     <Geography
                       key={geo.rsmKey}
@@ -264,25 +319,27 @@ function GamePlay({
                         default: {
                           fill: isFound
                             ? theme.found
-                            : theme.landPalette[modeData.colorIndex[name] ?? 0],
+                            : isWrong
+                              ? theme.wrong
+                              : baseFill,
+                          fillOpacity: isWrong ? 0.6 : 1,
                           stroke: "none",
                           outline: "none",
                         },
                         hover: {
                           fill: isFound
                             ? theme.found
-                            : clickable
-                              ? theme.hover
-                              : theme.landPalette[
-                                  modeData.colorIndex[name] ?? 0
-                                ],
+                            : isWrong
+                              ? theme.wrong
+                              : clickable
+                                ? theme.hover
+                                : baseFill,
+                          fillOpacity: isWrong ? 0.75 : 1,
                           outline: "none",
                           cursor: clickable ? "pointer" : "default",
                         },
                         pressed: {
-                          fill: clickable
-                            ? theme.found
-                            : theme.landPalette[modeData.colorIndex[name] ?? 0],
+                          fill: clickable ? theme.found : baseFill,
                           outline: "none",
                         },
                       }}
@@ -294,6 +351,26 @@ function GamePlay({
 
             {modeData.markers.map((marker) => {
               const isFound = found.has(marker.name);
+
+              // Pin décoratif (ex: capitales) : simple repère visuel, pas de
+              // cible en soi — c'est le clic sur le pays qui fait foi, donc
+              // ni onClick ni curseur pointeur, et un style discret qui ne
+              // laisse pas croire qu'il est cliquable.
+              if (!modeData.markersClickable) {
+                return (
+                  <Marker key={marker.name} coordinates={marker.coordinates}>
+                    <circle
+                      r={0.85}
+                      fill={isFound ? theme.found : "rgba(255, 255, 255, 0.55)"}
+                      stroke="rgba(0, 0, 0, 0.35)"
+                      strokeWidth={0.18}
+                      style={{ pointerEvents: "none" }}
+                    />
+                  </Marker>
+                );
+              }
+
+              const isWrong = wrongClicks.has(marker.name);
               return (
                 <Marker
                   key={marker.name}
@@ -304,8 +381,8 @@ function GamePlay({
                 >
                   <circle
                     r={1.6}
-                    fill={isFound ? theme.found : theme.pin}
-                    fillOpacity={0.55}
+                    fill={isFound ? theme.found : isWrong ? theme.wrong : theme.pin}
+                    fillOpacity={isWrong ? 0.8 : 0.55}
                     stroke="#ffffff"
                     strokeWidth={0.3}
                     style={{ cursor: "pointer" }}
@@ -313,6 +390,12 @@ function GamePlay({
                 </Marker>
               );
             })}
+
+            {puff && (
+              <Marker key={puff.key} coordinates={puff.coordinates}>
+                <FoundPuff />
+              </Marker>
+            )}
           </ZoomableGroup>
         </MapSvg>
       )}
@@ -328,6 +411,7 @@ export default function Home() {
   const [setupOpen, setSetupOpen] = useState(true);
   const themeIndex = useThemeIndex();
   const theme = THEMES[themeIndex];
+  const soundEnabled = useSoundEnabled();
 
   const [modeDataEntry, setModeDataEntry] = useState<{
     mode: GameModeId;
@@ -400,7 +484,12 @@ export default function Home() {
         onSuddenDeathChange={setSuddenDeath}
       />
 
-      <SettingsMenu themeIndex={themeIndex} onThemeChange={saveThemeIndex} />
+      <SettingsMenu
+        themeIndex={themeIndex}
+        onThemeChange={saveThemeIndex}
+        soundEnabled={soundEnabled}
+        onSoundEnabledChange={saveSoundEnabled}
+      />
       <AccountButton />
 
       <div className={styles.mapWrapper}>

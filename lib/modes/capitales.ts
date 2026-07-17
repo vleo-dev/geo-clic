@@ -7,8 +7,8 @@ import { loadWorldCountries } from "./shared";
 import type { ModeData, ModeMarker } from "./types";
 
 export async function loadCapitalesMode(): Promise<ModeData> {
-  // Même fond de carte que le mode "pays", uniquement pour le contexte
-  // visuel — les polygones ne sont pas cliquables dans ce mode.
+  // Même fond de carte que le mode "pays" — c'est le clic sur le pays qui
+  // fait foi, les pins ne sont qu'un repère visuel montrant la capitale.
   const { geoData, colorIndex } = await loadWorldCountries();
 
   const centroids: Record<string, [number, number]> = {};
@@ -25,7 +25,8 @@ export async function loadCapitalesMode(): Promise<ModeData> {
     geoData,
     colorIndex,
     markers,
-    polygonsClickable: false,
+    polygonsClickable: true,
+    markersClickable: false,
     names,
     centroids,
     zoneOf: (name) => COUNTRY_CONTINENT[name],

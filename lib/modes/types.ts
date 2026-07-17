@@ -30,13 +30,17 @@ export type ModeData = {
   geoData: RegionFeatureCollection | null;
   // Couleur (index dans la palette du thème) par nom de polygone.
   colorIndex: Record<string, number>;
-  // Pins cliquables (micro-États en mode "pays", capitales en mode
-  // "capitales"). Tableau vide si le mode n'utilise que les polygones.
+  // Pins affichés en plus des polygones (micro-États en mode "pays",
+  // capitales en mode "capitales"). Tableau vide si le mode n'utilise que
+  // les polygones.
   markers: ModeMarker[];
-  // Cliquer un polygone compte-t-il comme une tentative ? Faux en mode
-  // "capitales" (le fond de carte pays n'est là que pour le contexte
-  // visuel, seules les pins capitales sont cliquables).
+  // Cliquer un polygone compte-t-il comme une tentative ?
   polygonsClickable: boolean;
+  // Cliquer un pin compte-t-il comme une tentative ? Vrai pour les
+  // micro-États (mode "pays", trop petits pour être cliqués via leur
+  // polygone), faux pour les pins capitales (mode "capitales") qui ne sont
+  // qu'un repère visuel discret — c'est le pays qui fait foi.
+  markersClickable: boolean;
   // Pool complet des cibles (clés dans centroids).
   names: string[];
   // Coordonnées utilisées pour la distance chaud/froid et la position des
