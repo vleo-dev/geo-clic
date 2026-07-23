@@ -1,0 +1,74 @@
+// components/AnecdoteToast.module.scss
+
+@keyframes popUp {
+  0% {
+    transform: translate(-50%, 20px) scale(0.92);
+    opacity: 0;
+  }
+  60% {
+    transform: translate(-50%, -4px) scale(1.02);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, 0) scale(1);
+  }
+}
+
+.toast {
+  position: fixed;
+  bottom: 1.25rem;
+  left: 50%;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: min(92vw, 440px);
+  padding: 0.85rem 1.15rem 1rem;
+  background-color: var(--theme-surface-glass, rgba(255, 255, 255, 0.9));
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-radius: 14px;
+  border-left: 4px solid var(--theme-accent, #6366f1);
+  box-shadow:
+    0 16px 40px rgba(0, 0, 0, 0.28),
+    0 2px 8px rgba(0, 0, 0, 0.14);
+  color: var(--theme-surface-text, #1f2937);
+  // "forwards" conserve le transform de la dernière frame (translateX(-50%)
+  // pour le centrage inclus) une fois l'animation finie — sans ça, le
+  // navigateur abandonne la valeur animée de `transform` à la fin et le
+  // centrage horizontal saute.
+  animation: popUp 0.4s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.icon {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--theme-accent, #6366f1);
+}
+
+.flag {
+  margin-left: auto;
+  font-size: 1.3rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.text {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  text-align: left;
+}

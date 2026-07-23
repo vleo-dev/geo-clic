@@ -38,7 +38,7 @@ import {
   MODE_SUPPORTS_ZONE,
   MODE_UNIT_LABEL,
 } from "@/lib/gameModes";
-import { loadModeData, ModeData } from "@/lib/modes";
+import { loadModeData, ModeData, ModeLabel } from "@/lib/modes";
 import { ZoneSelection, zoneSelectionToStorage } from "@/lib/zones";
 import { SpecialFilter } from "@/lib/specialFilters";
 import { LANDLOCKED_COUNTRIES, ISLAND_COUNTRIES } from "@/lib/countryTraits";
@@ -46,6 +46,7 @@ import GameSetupModal from "@/components/GameSetupModal";
 import CountryCard from "@/components/CountryCard";
 import Thermometer from "@/components/Thermometer";
 import FoundPuff from "@/components/FoundPuff";
+import AnecdoteToast from "@/components/AnecdoteToast";
 import SettingsMenu from "@/components/SettingsMenu";
 import AccountButton from "@/components/AccountButton";
 import styles from "./page.module.scss";
@@ -102,6 +103,7 @@ type GamePlayProps = {
   names: string[];
   zoneStorage: string;
   suddenDeath: boolean;
+  anecdotesEnabled: boolean;
   session: Session | null;
   theme: Theme;
 };
@@ -117,6 +119,7 @@ function GamePlay({
   names,
   zoneStorage,
   suddenDeath,
+  anecdotesEnabled,
   session,
   theme,
 }: GamePlayProps) {
@@ -128,6 +131,11 @@ function GamePlay({
     key: number;
   } | null>(null);
   const puffKeyRef = useRef(0);
+  const [anecdote, setAnecdote] = useState<{
+    text: string;
+    label: ModeLabel;
+  } | null>(null);
+  const anecdoteRequestRef = useRef(0);
   const [errors, setErrors] = useState(0);
   const [target, setTarget] = useState<string | null>(() =>
     names.length > 0 ? pickRandom(names) : null,
@@ -174,6 +182,12 @@ function GamePlay({
   }, [puff]);
 
   useEffect(() => {
+    if (!anecdote) return;
+    const timer = setTimeout(() => setAnecdote(null), 6000);
+    return () => clearTimeout(timer);
+  }, [anecdote]);
+
+  useEffect(() => {
     if (!gameOver || !session?.user || gameRecordedRef.current) return;
     gameRecordedRef.current = true;
 
@@ -209,6 +223,23 @@ function GamePlay({
     }
   }
 
+  // Affiche une anecdote sur le pays qu'on vient de trouver, piochée en BDD
+  // (jamais d'appel à l'API Anthropic pendant la partie). `requestId` évite
+  // qu'une réponse en retard n'écrase l'anecdote d'une cible trouvée plus
+  // récemment si le joueur enchaîne vite les bonnes réponses.
+  function fetchAnecdote(country: string) {
+    setAnecdote(null);
+    const requestId = ++anecdoteRequestRef.current;
+    const foundLabel = modeData.getLabel(country);
+    fetch(`/api/anecdotes?country=${encodeURIComponent(country)}`)
+      .then((res) => res.json())
+      .then((data: { anecdote?: string | null }) => {
+        if (requestId !== anecdoteRequestRef.current || !data.anecdote) return;
+        setAnecdote({ text: data.anecdote, label: foundLabel });
+      })
+      .catch(() => {});
+  }
+
   function handleTargetClick(name: string, coordinates: [number, number]) {
     if (!target || gameOver) return;
 
@@ -216,6 +247,7 @@ function GamePlay({
       playFoundSound();
       puffKeyRef.current += 1;
       setPuff({ coordinates, key: puffKeyRef.current });
+      if (anecdotesEnabled) fetchAnecdote(target);
       advance(target);
       return;
     }
@@ -269,6 +301,7 @@ function GamePlay({
         feedback={gameOver ? null : feedback}
         feedbackKey={feedbackKey}
       />
+      <AnecdoteToast anecdote={anecdote} />
 
       {modeData.geoData && (
         <MapSvg
@@ -408,6 +441,7 @@ export default function Home() {
   const [selectedZones, setSelectedZones] = useState<ZoneSelection>([]);
   const [specialFilter, setSpecialFilter] = useState<SpecialFilter>("none");
   const [suddenDeath, setSuddenDeath] = useState(false);
+  const [anecdotesEnabled, setAnecdotesEnabled] = useState(true);
   const [setupOpen, setSetupOpen] = useState(true);
   const themeIndex = useThemeIndex();
   const theme = THEMES[themeIndex];
@@ -482,6 +516,8 @@ export default function Home() {
         onSpecialFilterChange={setSpecialFilter}
         suddenDeath={suddenDeath}
         onSuddenDeathChange={setSuddenDeath}
+        anecdotesEnabled={anecdotesEnabled}
+        onAnecdotesEnabledChange={setAnecdotesEnabled}
       />
 
       <SettingsMenu
@@ -501,6 +537,7 @@ export default function Home() {
             names={activeNames}
             zoneStorage={zoneStorage}
             suddenDeath={suddenDeath}
+            anecdotesEnabled={anecdotesEnabled}
             session={session}
             theme={theme}
           />

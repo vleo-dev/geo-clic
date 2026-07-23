@@ -76,3 +76,14 @@ model GameHistory {
 
   @@index([userId, playedAt])
 }
+
+// Pool d'anecdotes pré-générées par pays (API Anthropic, en amont, pas en
+// direct pendant une partie). `country` utilise la même clé que
+// `COUNTRY_INFO`/`COUNTRY_CONTINENT` (nom anglais world-atlas).
+model Anecdote {
+  id      String @id @default(cuid())
+  country String
+  text    String @db.Text
+
+  @@index([country])
+}

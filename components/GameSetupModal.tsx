@@ -26,6 +26,8 @@ type GameSetupModalProps = {
   onSpecialFilterChange: (filter: SpecialFilter) => void;
   suddenDeath: boolean;
   onSuddenDeathChange: (suddenDeath: boolean) => void;
+  anecdotesEnabled: boolean;
+  onAnecdotesEnabledChange: (anecdotesEnabled: boolean) => void;
 };
 
 export default function GameSetupModal({
@@ -39,6 +41,8 @@ export default function GameSetupModal({
   onSpecialFilterChange,
   suddenDeath,
   onSuddenDeathChange,
+  anecdotesEnabled,
+  onAnecdotesEnabledChange,
 }: GameSetupModalProps) {
   if (!open) return null;
 
@@ -87,16 +91,17 @@ export default function GameSetupModal({
           <input
             id="setup-anecdotes"
             type="checkbox"
-            disabled
+            checked={anecdotesEnabled}
+            onChange={(e) => onAnecdotesEnabledChange(e.target.checked)}
             className={styles.checkbox}
           />
-          <label htmlFor="setup-anecdotes" className={styles.settingLabelDisabled}>
+          <label htmlFor="setup-anecdotes" className={styles.settingLabel}>
             Activer les anecdotes
           </label>
           <button
             type="button"
             className={styles.infoButton}
-            data-tooltip="Fonctionnalité pas encore disponible : une anecdote générée par IA sur chaque pays trouvé."
+            data-tooltip="Affiche une anecdote générée par IA sur chaque pays trouvé."
             aria-label="En savoir plus sur les anecdotes"
           >
             i

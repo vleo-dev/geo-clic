@@ -1,5 +1,13 @@
 @import "tailwindcss";
 
+/* Réserve toujours la place de la scrollbar verticale : sans ça, son
+   apparition/disparition (ex. pendant le chargement de la carte) réduit
+   ou agrandit la largeur de fenêtre disponible, ce qui décale tout
+   élément centré par rapport au viewport (ex. la modale de config). */
+html {
+  scrollbar-gutter: stable;
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
