@@ -6,13 +6,17 @@ import { THEMES, themeCssVars, useThemeIndex } from "@/lib/theme";
 import { GAME_MODE_LABELS, GameModeId, MODE_SUPPORTS_ZONE } from "@/lib/gameModes";
 import { formatZoneSelection, zoneSelectionFromStorage } from "@/lib/zones";
 import { formatDuration } from "@/lib/format";
-import styles from "./historique.module.scss";
+import styles from "./admin.module.scss";
 
-type HistoriqueViewProps = {
-  games: GameHistory[];
+type AdminGame = GameHistory & {
+  user: { name: string | null; email: string } | null;
 };
 
-export default function HistoriqueView({ games }: HistoriqueViewProps) {
+type AdminViewProps = {
+  games: AdminGame[];
+};
+
+export default function AdminView({ games }: AdminViewProps) {
   const theme = THEMES[useThemeIndex()];
 
   return (
@@ -25,7 +29,7 @@ export default function HistoriqueView({ games }: HistoriqueViewProps) {
     >
       <div className={styles.card}>
         <div className={styles.header}>
-          <h1>Historique des parties</h1>
+          <h1>Panel admin — parties jouées</h1>
           <Link href="/" className={styles.backLink}>
             ← Retour au jeu
           </Link>
@@ -34,10 +38,12 @@ export default function HistoriqueView({ games }: HistoriqueViewProps) {
         {games.length === 0 ? (
           <p className={styles.empty}>Aucune partie jouée pour l&apos;instant.</p>
         ) : (
+          <div className={styles.tableWrap}>
           <table className={styles.table}>
             <thead>
               <tr>
                 <th>Date</th>
+                <th>Joueur</th>
                 <th>Score</th>
                 <th>Erreurs</th>
                 <th>Mode</th>
@@ -56,6 +62,11 @@ export default function HistoriqueView({ games }: HistoriqueViewProps) {
                         timeStyle: "short",
                       }).format(game.playedAt)}
                     </td>
+                    <td>
+                      {game.user
+                        ? (game.user.name ?? game.user.email)
+                        : `Anonyme — ${game.ipAddress ?? "IP inconnue"}`}
+                    </td>
                     <td>{game.total != null ? `${game.score}/${game.total}` : game.score}</td>
                     <td>{game.errors ?? "—"}</td>
                     <td>{GAME_MODE_LABELS[mode] ?? game.mode}</td>
@@ -70,6 +81,7 @@ export default function HistoriqueView({ games }: HistoriqueViewProps) {
               })}
             </tbody>
           </table>
+          </div>
         )}
       </div>
     </div>

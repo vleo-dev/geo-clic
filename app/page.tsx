@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ComponentProps, type ForwardRefExoticComponent, type RefAttributes } from "react";
-import { useSession } from "next-auth/react";
-import type { Session } from "next-auth";
 import {
   ComposableMap,
   Geographies,
@@ -104,7 +102,6 @@ type GamePlayProps = {
   zoneStorage: string;
   suddenDeath: boolean;
   anecdotesEnabled: boolean;
-  session: Session | null;
   theme: Theme;
 };
 
@@ -120,7 +117,6 @@ function GamePlay({
   zoneStorage,
   suddenDeath,
   anecdotesEnabled,
-  session,
   theme,
 }: GamePlayProps) {
   const [found, setFound] = useState<Set<string>>(new Set());
@@ -188,7 +184,7 @@ function GamePlay({
   }, [anecdote]);
 
   useEffect(() => {
-    if (!gameOver || !session?.user || gameRecordedRef.current) return;
+    if (!gameOver || gameRecordedRef.current) return;
     gameRecordedRef.current = true;
 
     const durationSeconds = Math.round((Date.now() - gameStartedAt) / 1000);
@@ -204,7 +200,7 @@ function GamePlay({
         durationSeconds,
       }),
     });
-  }, [gameOver, session, score, errors, mode, zoneStorage, gameStartedAt, names]);
+  }, [gameOver, score, errors, mode, zoneStorage, gameStartedAt, names]);
 
   // Marque `revealed` comme traité (colorié, exclu des prochains tirages) et
   // passe à la cible suivante, ou termine la partie s'il n'en reste plus.
@@ -452,8 +448,6 @@ export default function Home() {
     data: ModeData;
   } | null>(null);
 
-  const { data: session } = useSession();
-
   // Ignore les données encore en cache pendant le chargement d'un nouveau
   // mode, pour ne pas afficher un fond de carte incohérent avec `mode`.
   const modeData = modeDataEntry?.mode === mode ? modeDataEntry.data : null;
@@ -538,7 +532,6 @@ export default function Home() {
             zoneStorage={zoneStorage}
             suddenDeath={suddenDeath}
             anecdotesEnabled={anecdotesEnabled}
-            session={session}
             theme={theme}
           />
         )}

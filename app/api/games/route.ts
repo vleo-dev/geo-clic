@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { getClientIp } from "@/lib/clientIp";
 
 export async function POST(request: Request) {
   const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Non connecté." }, { status: 401 });
-  }
 
   const body = await request.json();
   const { score, total, errors, mode, zone, durationSeconds } = body as {
@@ -31,7 +29,10 @@ export async function POST(request: Request) {
 
   const game = await prisma.gameHistory.create({
     data: {
-      userId: session.user.id,
+      userId: session?.user?.id ?? null,
+      // IP tracée uniquement pour les parties anonymes — inutile de tracer
+      // l'IP de quelqu'un déjà identifié par son compte.
+      ipAddress: session?.user ? null : getClientIp(request),
       score,
       total,
       errors,

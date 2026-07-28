@@ -60,7 +60,12 @@ model VerificationToken {
 
 model GameHistory {
   id              String   @id @default(cuid())
-  userId          String
+  // Nullable : une partie jouée sans compte connecté n'a pas d'utilisateur,
+  // seulement une adresse IP (voir `ipAddress`).
+  userId          String?
+  // Renseignée uniquement pour les parties anonymes (pas de session) — sert
+  // à distinguer les visiteurs non inscrits dans le panel admin.
+  ipAddress       String?
   playedAt        DateTime @default(now())
   score           Int
   // Nombre de cibles possibles pour le mode/zone/filtre joués. Nullable car
@@ -72,9 +77,10 @@ model GameHistory {
   zone            String
   durationSeconds Int
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, playedAt])
+  @@index([ipAddress, playedAt])
 }
 
 // Pool d'anecdotes pré-générées par pays (API Anthropic, en amont, pas en
